@@ -11,4 +11,9 @@
 **Requirements:** DataFlex 25.0+  
 **Status:** Beta — feedback welcome
 
+## [0.1.1] – 2025-08-27
+### Changed
+- Dropped 'Sheigra' from the .sws file name. 
+
+
 
