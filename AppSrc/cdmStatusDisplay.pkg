@@ -1,0 +1,20 @@
+﻿Use Dftreevw.pkg
+
+Class cdmStatusDisplay is a TreeView
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Set ImageListObject    to 0
+        Set TreeLinesState     to False
+        Set TreeRootLinesState to False    
+        Set Label_Justification_Mode to JMode_Top
+        Set Label_Col_Offset   to 0
+    End_Procedure
+    
+    Procedure Update String sText
+        Handle hItem
+        Get AddTreeItem sText 0 0 0 0 to hItem
+        Set CurrentTreeItem to hItem 
+    End_Procedure
+End_Class

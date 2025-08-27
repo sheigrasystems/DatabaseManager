@@ -1,0 +1,168 @@
+﻿Use Dfpanel.pkg
+Use nesting.pkg
+Use cdmStatusDisplay.pkg
+Use Dfline.pkg
+Use cDatabaseTablesManager.pkg
+Use cTimer.pkg
+Use EnumDrivers.pkg
+Use cCJStandardCommandBarSystem.pkg
+Use cCJCommandBarSystem.pkg
+Use DatabaseManagerSingletons.pkg
+
+{ Visibility = Private }
+Class cDatabaseManagerTimer is a cTimer
+
+    Procedure OnTimer
+        Handle hoDatabaseTablesManager
+        
+        Set pbEnabled to False
+        Get phoDatabaseTablesManager to hoDatabaseTablesManager
+        Send DoProcess of hoDatabaseTablesManager
+        Send Exit_Application
+    End_Procedure
+End_Class
+
+{ Visibility = Private }
+Class cDatabaseManagerStatusBar is a cCJStatusBar
+    Procedure OnCreate
+        
+        Forward Send OnCreate
+        Set ComShowSizeGripper to False
+    End_Procedure
+End_Class
+
+{ DesignerClass = cDTView }
+Class cDatabaseManager is a Panel
+    Import_Class_Protocol nesting_mixin    
+
+    Procedure Construct_Object
+        Handle hoDatabaseTablesManager
+        
+        Forward Send Construct_Object
+        Move Self to ghoDatabaseManager
+        
+        { Category = "Behaviour" }
+        { EnumList = "eDATAFLEX,eMSSQLDRV,eODBC_DRV,eDB2_DRV" InitialValue = eMSSQLDRV}
+        Property Integer peDefaultDriver    eMSSQLDRV
+                
+        { DesignTime = False }
+        Property Handle phoDatabaseTablesManager (Create(Self,RefClass(cDatabaseTablesManager)))
+        Get phoDatabaseTablesManager to hoDatabaseTablesManager
+
+        Set Status_Panel_Id of hoDatabaseTablesManager to Self
+        
+        Object oTimer is a cDatabaseManagerTimer  
+        End_Object
+        
+        { DesignTime = False }
+        Property Handle phoErrorsEncountered
+        { DesignTime = False }
+        Property Handle phoTableHistory
+        
+        Send Define_Nesting
+
+        Set Sysmenu_Icon to False
+        Set Label to "Database Manager"
+        Set Location  to 4 3
+        Set Size      to 207 288
+        Set piMinSize to 207 288
+
+        Object oCJCommandBarSystem is a cCJCommandBarSystem
+            Object oCJStatusBar is a cDatabaseManagerStatusBar
+                
+                Object oErrors is a cCJStatusBarPane
+                    Set psText to "Errors Encountered:"
+                    Set pbStyleStretch to True
+                    Set peAlignment to xtpAlignmentRight
+                End_Object
+
+                Object oErrorsEncountered is a cCJStatusBarPane
+                    Set psText to "0"
+                    Set piWidth to 75
+                    Set phoErrorsEncountered to Self
+                End_Object  
+            End_Object
+        End_Object
+    
+        Object oBanner is a Container3d
+            Set Size to 27 280
+            Set Border_Style to Border_None
+            Set Color to clWhite
+            Set peAnchors to anTopLeftRight
+            
+            Object oTitle is a TextBox
+                Set Location to 0 4
+                Set FontPointHeight to 16   
+                Set Label to "Database Manager"
+                Set Transparent_State to True
+            End_Object
+            
+            Object oSubTitle is a TextBox
+                Set Location to 16 4 
+                Set FontPointHeight to 8  
+                Set Label to "Please wait whilst your database is configured ..."
+                Set Transparent_State to True
+            End_Object
+        End_Object
+    
+        Object oLineControl is a LineControl
+            Set Size to 1 280
+            Set Location to 27 0
+            Set peAnchors to anTopLeftRight
+        End_Object
+    
+        Object oComponent is a cdmStatusDisplay
+            Set Size to 131 134
+            Set Location to 40 5
+            Set peAnchors to anTopBottom
+            Set Label to "Component:"
+        End_Object
+        
+        Object oDetail is a cdmStatusDisplay
+            Set Size to 131 134
+            Set Location to 40 141
+            Set peAnchors to anAll
+            Set Label to "Details:"
+        End_Object
+    End_Procedure
+    
+    Procedure Set ComponentStatus String sStatus
+        Send Delete_Data of oDetail
+        Send Update of oComponent sStatus
+    End_Procedure
+    
+    Procedure Set DetailStatus String sStatus
+        Integer iError_Count
+        
+        Send Update of oDetail sStatus
+        Get Error_Count of (phoDatabaseTablesManager(Self)) to iError_Count
+        Set psText of (phoErrorsEncountered(Self)) to iError_Count
+    End_Procedure
+    
+    Procedure RegisterTableObject Handle hoTable
+        Send RegisterTableObject of (phoDatabaseTablesManager(Self)) hoTable
+    End_Procedure
+    
+    Procedure Activating
+        String sDriver
+        
+        Forward Send Activating
+        Get psDriver of ghoApplication to sDriver
+        If (sDriver<>"") Begin
+            Case Begin
+                Case (sDriver="MSSQLDRV")
+                    Set peDefaultDriver to eMSSQLDRV
+                    Case Break
+                Case (sDriver="ODBC_DRV")
+                    Set peDefaultDriver to eODBC_DRV
+                    Case Break
+                Case (sDriver="DB2_DRV")
+                    Set peDefaultDriver to eDB2_DRV
+                    Case Break
+                Case Else    
+                    Set peDefaultDriver to eDATAFLEX
+            Case End
+        End
+        Set pbEnabled of oTimer to True
+    End_Procedure
+End_Class

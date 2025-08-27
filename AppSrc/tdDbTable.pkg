@@ -1,0 +1,11 @@
+﻿Use tdColumnDef.pkg
+Use tdIndexDef.pkg
+
+{ Visibility = Private }
+Struct tdDbTable
+    Integer iFileNo
+    String  sName
+    Integer iflgAction
+    tdColumnDef[] aColumns
+    tdIndexDef[] aIndexes 
+End_Struct

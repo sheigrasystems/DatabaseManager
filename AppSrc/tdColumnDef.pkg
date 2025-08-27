@@ -1,0 +1,13 @@
+﻿{ Visibility = Private }
+Struct tdColumnDef
+    String  sCol
+    Integer iCol
+    Integer iLength
+    Integer iPrecision    
+    Integer iDfType
+    Integer iNativeType
+    String  sNativeType
+    Integer iRelatedTable
+    Integer iRelatedCol
+    Integer iflgAction
+End_Struct

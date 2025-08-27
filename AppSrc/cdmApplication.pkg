@@ -1,0 +1,31 @@
+﻿Use cApplication.pkg
+Use cdmWorkspace.pkg
+Use dbConfig.dg
+
+Class cdmApplication is a cApplication
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Set peHelpType to htNoHelp
+        Set pbPreserveEnvironment to False
+        Set psAutoOpenWorkspace to "Config.ws"
+        
+        Object oWorkspace is a cdmWorkspace
+            Delegate Set phoWorkspace to Self
+        End_Object
+        
+        { DesignTime = False }
+        Property String psDriver 
+    End_Procedure
+
+    Procedure AutoConnect 
+        Boolean bExists
+        
+        Get ConnectionIniFileExists of ghoConnection to bExists
+        If (not(bExists)) Begin
+            Send Popup of odbConfig    
+        End
+        Forward Send AutoConnect
+    End_Procedure
+End_Class

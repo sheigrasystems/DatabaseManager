@@ -1,0 +1,533 @@
+﻿Use cConnection.pkg
+Use cli.pkg
+Use MSSqldrv.pkg
+Use cSQLExecutor.pkg
+
+Define edbaccessadmin   for  1
+Define edbdatareader    for  2
+Define edbdatawriter    for  4
+Define edbddladmin      for  8
+Define edbowner         for 16
+
+Define C_$DefaultConnectionsIni for "connections.ini"
+
+Class cdmConnection is a cConnection
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+                
+        // By default we opt to NOT use DFConnId.ini because your application may use different connection settings to your studio/you as a developer        
+        Set psConnectionIni to C_$DefaultConnectionsIni
+
+        Object oSqlExecutor is a cSQLExecutor
+            Move Self to ghoSQLExecutor      
+        End_Object
+        
+        { DesignTime = False }
+        Property String psServer
+        { DesignTime = False }
+        Property String psDatabase
+        { DesignTime = False }
+        Property String psUid
+        { DesignTime = False }
+        Property String psPwd
+        { DesignTime = False }
+        Property String psSAUid
+        { DesignTime = False }
+        Property String psSAPwd
+        
+        { Category = "Behaviour" }
+        Property String psDefaultConnectionId ""
+    End_Procedure  
+    
+    // intended for augmentation
+    Function DefaultConnectionId Returns String
+        String  sDefaultConnectionId
+        Boolean bLoggedIn
+        tConnection[] aConnections
+        
+        Get ConnectionIDs to aConnections
+        If (SizeOfArray(aConnections)=1) Begin
+            Get IsConnectionIdLoggedIn aConnections[0].sId to bLoggedIn
+            If (bLoggedIn) Begin
+                Set psDefaultConnectionId to aConnections[0].sId         
+            End
+        End
+        Get psDefaultConnectionId to sDefaultConnectionId
+        If (sDefaultConnectionId="") Begin
+            Get psProduct of ghoApplication to sDefaultConnectionId
+            Get CI_StrReplaces " " sDefaultConnectionId "" to sDefaultConnectionId
+            If (sDefaultConnectionId="") Begin
+                Get psWorkspaceName of (phoWorkspace(ghoApplication)) to sDefaultConnectionId
+            End
+        End
+        Function_Return sDefaultConnectionId
+    End_Function 
+
+    Function CI_StrReplaces String s String sSource String sWith Returns String
+        Integer iPos
+    
+        Move (Pos(Uppercase(s),Uppercase(sSource))) to iPos
+        While (iPos>0)
+            Move (Overstrike(Uppercase(s),sSource,iPos)) to sSource
+            Increment iPos
+            Move (Pos(Uppercase(s),Uppercase(sSource),iPos)) to iPos    
+        Loop
+        Function_Return (Replaces(Uppercase(s),sSource,sWith))
+    End_Function
+    
+    Function CI_Pos String sSubStr String sHostStr Returns Integer
+        Integer iPos
+        
+        Move (Uppercase(sSubStr))  to sSubStr
+        Move (Uppercase(sHostStr)) to sHostStr
+        Function_Return (Pos(sSubStr,sHostStr))
+    End_Function  
+    
+    Function ConnectionIniFileExists Returns Boolean
+        String sConnections
+        Get ConnectionIniFile to sConnections
+        Function_Return (DoesFileExist(sConnections))
+    End_Function
+    
+    { MethodType = Event }
+    Procedure OnCreateConnectionsIni tConnection[] ByRef Ids 
+        String sServer sDatabase 
+        
+        Get DefaultConnectionId to Ids[0].sId
+        Get psServer to sServer
+        Get psDatabase to sDatabase        
+        Move MSSQLDRV_ID to Ids[0].sDriver
+        Move (SFormat("SERVER=%1;DATABASE=%2;Encrypt=No;TrustServerCertificate=no",sServer,sDatabase)) to Ids[0].sString
+        Get psUid to Ids[0].sUID
+        Get psPwd to Ids[0].sPWD
+        Move (Ids[0].sUID='' and Ids[0].sPWD='') to Ids[0].bTrustedConnection
+        Get AssembleConnectionString Ids[0].sString Ids[0].sUID Ids[0].sPWD Ids[0].bTrustedConnection to Ids[0].sConnectionString
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure CreateConnectionsIni String sConnections
+        tConnection[] Ids
+        Boolean bOk
+        
+        Send OnCreateConnectionsIni (&Ids) 
+        Get WriteConnectionsIni sConnections Ids to bOk  
+    End_Procedure
+    
+    Procedure AutoConnect
+        String sConnections sConnId
+
+        Get ConnectionIniFile to sConnections
+        If (DoesFileExist(sConnections)) Begin            
+            Forward Send AutoConnect
+            Get DefaultConnectionId to sConnId
+            Set psConnectionId of ghoSQLExecutor to sConnId
+        End
+    End_Procedure
+   
+    { Visibility = Private }
+    Function ConnectionStringArray String sConnectionId Returns String[]
+        String sConnection
+        tConnection Conn
+
+        If (num_arguments > 0) Begin
+            Move sConnectionId to sConnection
+        End
+        Else Begin
+            Get DefaultConnectionId to sConnection
+        End
+        Get ConnectionIdInfo sConnection to Conn
+        Function_Return (StrSplitToArray(Conn.sString,';'))        
+    End_Function
+    
+    Function ConnectionServer Returns String
+        String[] aConn
+        Integer  i
+        String   sServer
+        
+        Get ConnectionStringArray to aConn
+        For i from 0 to (SizeOfArray(aConn)-1)
+            If (CI_Pos(self,'Server=',aConn[i])=1) Begin
+                Move (CI_StrReplaces(self,'Server=',aConn[i],'')) to sServer
+            End
+            If (sServer>'') ;
+                Break
+        Loop
+        Function_Return sServer
+    End_Function
+    
+    Function ConnectionDatabase Returns String
+        String[] aConn
+        Integer  i
+        String   sDatabase
+        
+        Get ConnectionStringArray to aConn
+        For i from 0 to (SizeOfArray(aConn)-1)
+            If (CI_Pos(self,'Database=',aConn[i])=1) Begin
+                Move (CI_StrReplaces(Self,'Database=',aConn[i],'')) to sDatabase
+            End
+            If (sDatabase>'') ;
+                Break
+        Loop
+        Function_Return sDatabase
+    End_Function    
+                    
+    Function SqlTypeToDfType Integer eSQLType Returns Integer
+        Integer eDFType
+        
+        Case Begin 
+            Case (eSQLType=SQL_CHAR)
+            Case (eSQLType=SQL_WCHAR)
+                Move DF_ASCII to eDFType
+                Case Break
+            Case (eSQLType=SQL_WVARCHARMAX)
+                Move DF_TEXT to eDFType
+                Case Break
+            Case (eSQLType=SQL_INTEGER)
+            Case (eSQLType=SQL_SMALLINT)
+            Case (eSQLType=SQL_TINYINT)
+            Case (eSQLType=SQL_NUMERIC)
+                Move DF_BCD to eDFType
+                Case Break
+            Case (eSQLType=SQL_TYPE_TIMESTAMP)
+            Case (esqlTime=SQL_DATETIME)
+            Case (eSQLType=SQL_TYPE_DATE)
+                Move DF_DATE to eDFType
+                Case Break
+        Case End        
+        Function_Return eDFType
+    End_Function  
+    
+    Function SqlConnectionId String sConnId Returns Handle
+        Handle hoConnection
+        String sConnection
+        
+        If (num_arguments=0) Begin
+            Get DefaultConnectionID to sConnection    
+        End
+        Else Begin
+            Move sConnId to sConnection
+        End
+        Forward Get SqlConnectionId sConnection to hoConnection
+        Function_Return hoConnection
+    End_Function 
+    
+    Procedure DropView String sView
+        Boolean bExists
+
+        Get ViewExists sView to bExists
+        If (bExists) Begin
+            Send SQLExecDirect of ghoSQLExecutor (SFormat('Drop View %1',sView))
+        End
+    End_Procedure
+
+    Function ViewExists String sView Returns Boolean
+        Integer iResult
+        Handle  hoConnection hoStmt
+        Boolean bExists
+
+        Get SqlConnectionId to hoConnection
+        Get SqlOpen of hoConnection to hoStmt
+        Send SqlExecDirect of hoStmt (SFormat(@SQL"""
+        "if (EXISTS(select * from dbo.sysobjects where id = object_id(N'%1') AND xtype = 'V')) BEGIN SELECT 1 END ELSE BEGIN SELECT 0 END" 
+        """,sView))        
+        Get SqlFetch of hoStmt to iResult
+        If (iResult>0) Begin
+            Get SqlColumnValue of hoStmt 1 to bExists
+        End
+        Send SqlClose of hoStmt
+        Send SqlDisconnect of hoConnection
+        Function_Return bExists
+    End_Function
+
+    Function DatabaseExists String sDatabase String sServer Returns Boolean
+        String  sConnection sSQL sUid sPwd
+        Integer iResult
+        Handle  hoSqlHandler hoConnection hoStmt
+
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>1) Begin
+            Move (SFormat(sConnection,sServer)) to sConnection
+        End
+        Else Begin
+            Move (SFormat(sConnection,ConnectionServer(Self))) to sConnection
+        End
+
+        Move """
+        Select case when not exists (Select name from master.sys.sysdatabases where ('"'+name+'"' = '%1' or name = '%1')) then 0 else 1 end
+        """ to sSQL
+        Move (SFormat(sSQL,sDatabase)) to sSQL
+        
+        Object oSqlHandler is a cSQLHandleManager
+            Move Self to hoSqlHandler
+        End_Object
+        
+        Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection
+        Get SQLOpen of hoConnection to hoStmt
+        Send SqlExecDirect of hoStmt sSql
+        Get SQLFetch of hoStmt to iResult
+        If (iResult>0) Begin
+            Get SQLColumnValue of hoStmt 1 to iResult    
+        End
+        Send SqlClose of hoStmt
+        Send SQLDisconnect of hoConnection
+        Send Destroy of hoSqlHandler
+        
+        Function_Return iResult
+    End_Function
+
+    Function CreateDatabase String sDatabase String sServer Returns Boolean
+        String sConnection sUid sPwd
+        Boolean bError bExists
+        Handle  hoSqlHandler hoConnection hoStmt
+
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>1) Begin
+            Get DatabaseExists sDatabase sServer to bExists
+            Move (SFormat(sConnection,sServer)) to sConnection
+        End
+        Else Begin
+            Get DatabaseExists sDatabase (ConnectionServer(Self)) to bExists
+            Move (SFormat(sConnection,ConnectionServer(Self))) to sConnection
+        End
+        
+        If (not(bExists)) Begin
+            Object oSqlHandler is a cSQLHandleManager
+                Move Self to hoSqlHandler
+            End_Object
+            
+            Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection
+            Get SQLOpen of hoConnection to hoStmt
+            Send SqlExecDirect of hoStmt (SFormat('Create Database "%1"',sDatabase))
+            Send SqlExecDirect of hoStmt (SFormat('Alter Database "%1" set arithabort on',sDatabase))
+            Send SqlClose of hoStmt
+            Send SQLDisconnect of hoConnection
+            Send Destroy of hoSqlHandler
+        End
+        If (num_arguments>1) Begin
+            Get DatabaseExists sDatabase sServer to bExists
+        End
+        Else Begin
+            Get DatabaseExists sDatabase (ConnectionServer(Self)) to bExists
+        End
+        Move (not(bExists)) to bError
+        Function_Return bError
+    End_Function
+
+    Function LoginExists String sLogin String sServer Returns Boolean
+        String  sConnection sSQL sUid sPwd
+        Integer iResult
+        Handle  hoSqlHandler hoConnection hoStmt
+        
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>0) Begin
+            Move (SFormat(sConnection,sServer)) to sConnection
+        End
+        Else Begin
+            Move (SFormat(sConnection,ConnectionServer(Self))) to sConnection
+        End
+
+        Move "Select case when not exists (select name from sys.server_principals where name = '%1') then 0 else 1 end" to sSQL
+        Move (SFormat(sSQL,sLogin)) to sSQL
+        
+        Object oSqlHandler is a cSQLHandleManager
+            Move Self to hoSqlHandler
+        End_Object
+        
+        Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection
+        Get SQLOpen of hoConnection to hoStmt
+        Send SqlExecDirect of hoStmt sSql
+        Get SQLFetch of hoStmt to iResult
+        If (iResult>0) Begin
+            Get SQLColumnValue of hoStmt 1 to iResult    
+        End
+        Send SqlClose of hoStmt
+        Send SQLDisconnect of hoConnection
+        Send Destroy of hoSqlHandler
+
+        Function_Return iResult
+    End_Function
+
+    Function CreateLogin String sLogin String sPassword String sDatabase String sServer Returns Boolean
+        String  sConnection sSQL sUid sPwd
+        Integer iExists
+        Boolean bError bDatabaseOk
+        Handle  hoSqlHandler hoConnection hoStmt
+
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>3) Begin
+            Get LoginExists sLogin sServer to iExists
+            Get DatabaseExists sDatabase sServer to bDatabaseOk
+            Move (SFormat(sConnection,sServer)) to sConnection
+        End
+        Else Begin
+            Get LoginExists sLogin (ConnectionServer(Self)) to iExists
+            Get DatabaseExists sDatabase (ConnectionServer(Self)) to bDatabaseOk
+            Move (SFormat(sConnection,ConnectionServer(Self))) to sConnection
+        End
+        If (not(bDatabaseOk)) Begin
+            Move True to bError
+        End
+        Else Begin
+            If (not(iExists)) Begin  
+                Move @SQL"""
+                CREATE Login "%1" WITH password=N'%2', Default_Database="%3", DEFAULT_LANGUAGE="us_english", CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+                """ to sSQL
+                Move (SFormat(sSQL,sLogin,sPassword,sDatabase)) to sSQL
+                
+                Object oSqlHandler is a cSQLHandleManager
+                    Move Self to hoSqlHandler
+                End_Object
+                
+                Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection
+                Get SQLOpen of hoConnection to hoStmt
+                Send SqlExecDirect of hoStmt sSql
+                Send SqlClose of hoStmt
+                Send SQLDisconnect of hoConnection
+                Send Destroy of hoSqlHandler
+
+                If (num_arguments>3) Begin
+                    Get LoginExists sLogin sServer to iExists
+                End
+                Else Begin
+                    Get LoginExists sLogin (ConnectionServer(Self)) to iExists
+                End
+                Move (not(iExists)) to bError
+            End
+        End
+        Function_Return bError
+    End_Function
+
+    Function UserExists String sUser String sDatabase String sServer Returns Boolean
+        String  sConnection sSQL sUid sPwd
+        Integer iResult
+        Handle  hoSqlHandler hoConnection hoStmt
+        
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>2) Begin
+            Get DatabaseExists sDatabase sServer to iResult
+            Move (SFormat(sConnection,sServer,sDatabase)) to sConnection
+        End
+        Else Begin
+            Get DatabaseExists sDatabase (ConnectionServer(Self)) to iResult
+            Move (SFormat(sConnection,ConnectionServer(Self),sDatabase)) to sConnection
+        End
+        If (iResult>0) Begin
+            Move "Select Case when dp.name is null then 0 else 1 end" to sSQL
+            Add " from sys.server_principals sp left join sys.database_principals dp on sp.sid=dp.sid" to sSQL
+            Add " where sp.name = '%1'" to sSQL
+            Move (SFormat(sSQL,sUser)) to sSQL
+            
+            Object oSqlHandler is a cSQLHandleManager
+                Move Self to hoSqlHandler
+            End_Object
+            
+            Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection               
+            Get SQLOpen of hoConnection to hoStmt
+            Send SqlExecDirect of hoStmt sSql
+            Get SQLFetch of hoStmt to iResult
+            If (iResult>0) Begin
+                Get SQLColumnValue of hoStmt 1 to iResult    
+            End
+            Send SqlClose of hoStmt
+            Send SQLDisconnect of hoConnection      
+            Send Destroy of hoSqlHandler
+        End
+        Function_Return iResult
+    End_Function
+
+    Function CreateUser String sLogin String sDatabase String sServer Integer ePermissionFlgs Returns Boolean
+        String sConnection sSQL sUid sPwd
+        Integer iExists iFlgs
+        Boolean bError
+        Handle  hoSqlHandler hoConnection hoStmt
+
+        Get psSAUid to sUid
+        Get psSAPwd to sPwd
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2" to sConnection
+        If (sUid>'' and sPwd>'') Begin
+            Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
+        End
+        If (num_arguments>2) Begin
+            Get UserExists sLogin sDatabase sServer to iExists
+            Move (SFormat(sConnection,sServer,sDatabase)) to sConnection
+        End
+        Else Begin
+            Get UserExists sLogin sDatabase (ConnectionServer(Self)) to iExists
+            Move (SFormat(sConnection,ConnectionServer(Self),sDatabase)) to sConnection
+        End
+        If (not(iExists)) Begin
+            If (num_arguments>3) Begin
+                Move ePermissionFlgs to iFlgs
+            End
+            Else Begin
+                Move edbowner to iFlgs
+            End
+            
+            Move 'Alter Login "%1" Disable;' to sSQL
+            Add ' Create User "%1" for login "%1" with DEFAULT_SCHEMA="dbo";' to sSQL
+            If (IsFlagIn(edbaccessadmin,iFlgs)) Begin
+                Add " EXEC sp_addrolemember N'db_accessadmin', N'%1';" to sSQL    
+            End
+            If (IsFlagIn(edbdatareader,iFlgs)) Begin
+                Add " EXEC sp_addrolemember N'db_datareader', N'%1';" to sSQL    
+            End
+            If (IsFlagIn(edbdatawriter,iFlgs)) Begin
+                Add " EXEC sp_addrolemember N'db_datawriter', N'%1';" to sSQL    
+            End
+            If (IsFlagIn(edbddladmin,iFlgs)) Begin
+                Add " EXEC sp_addrolemember N'db_ddladmin', N'%1';" to sSQL    
+            End
+            If (IsFlagIn(edbowner,iFlgs)) Begin
+                Add " EXEC sp_addrolemember N'db_owner', N'%1';" to sSQL    
+            End
+            Add ' Alter Login "%1" Enable;' to sSQL
+            Move (SFormat(sSQL,sLogin)) to sSQL
+            
+            Object oSqlHandler is a cSQLHandleManager
+                Move Self to hoSqlHandler
+            End_Object
+            
+            Get SQLConnect of hoSqlHandler MSSQLDRV_ID sConnection to hoConnection
+            Get SQLOpen of hoConnection to hoStmt
+            Send SqlExecDirect of hoStmt sSql
+            Send SqlClose of hoStmt
+            Send SQLDisconnect of hoConnection
+            Send Destroy of hoSqlHandler
+
+            If (num_arguments>2) Begin
+                Get UserExists sLogin sDatabase sServer to iExists
+            End
+            Else Begin
+                Get UserExists sLogin sDatabase (ConnectionServer(Self)) to iExists
+            End
+            Move (not(iExists)) to bError
+        End
+        Function_Return bError
+    End_Function 
+End_Class

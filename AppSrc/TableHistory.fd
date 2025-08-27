@@ -1,0 +1,12 @@
+﻿#Replace FILE1 TableHistory
+#Replace TableHistory.File_Number |CI1
+#Replace TableHistory.Id |FN1,1
+#Replace TableHistory.Date |FD1,2
+#Replace TableHistory.Time |FS1,3
+#Replace TableHistory.Table |FS1,4
+#Replace TableHistory.Column |FS1,5
+#Replace TableHistory.Changed |FS1,6
+#Replace TableHistory.VersionMajor |FS1,4
+#Replace TableHistory.VersionMinor |FS1,5
+#Replace TableHistory.VersionPatch |FS1,6
+#Replace TableHistory.VersionBuild |FS1,7

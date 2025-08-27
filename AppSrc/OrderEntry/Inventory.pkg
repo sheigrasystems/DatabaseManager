@@ -1,0 +1,74 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Declare_Datafile Vendor
+
+Object Inventory is a cTableDef
+    Set psDescription to "Inventory Parts"
+    Set peDriver to eMSSQLDRV
+    Set piFileNo to 22
+
+    Object Item_Id is a cColumnDef
+        Set peNativeDataType to SQL_WCHAR
+        Set piLength to 10
+    End_Object
+    
+    Object Description is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 35
+    End_Object
+    
+    Object Vendor_Id is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set piLength to 6
+        Set piRelatedTable to (RefTable(Vendor))
+        Set piRelatedColumn to (RefTable(Vendor.ID))
+    End_Object 
+    
+    Object Vendor_Part_Id is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 15
+    End_Object
+    
+    Object Unit_Price is a cColumnDef
+        Set peNativeDataType to SQL_NUMERIC
+        Set piLength to 8
+        Set piPrecision to 2   
+    End_Object
+    
+    Object On_Hand is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set piLength to 6 
+    End_Object
+    
+    // Indexes
+    Object Index1 is a cTableIndex
+        Set pbPrimaryIndex  to True
+        Set pbSqlPrimaryKey to True
+        
+        Object Item_Id is a cIndexSegment 
+        End_Object
+    End_Object
+    
+    Object Index2 is a cTableIndex
+
+        Object Vendor_Id is a cIndexSegment 
+        End_Object
+        
+        Object Vendor_Part_Id is a cIndexSegment
+        End_Object
+        
+        Object Item_Id is a cIndexSegment 
+        End_Object
+    End_Object  
+    
+    Object Index2 is a cTableIndex
+
+        Object Description is a cIndexSegment 
+        End_Object
+        
+        Object Item_Id is a cIndexSegment 
+        End_Object
+    End_Object  
+End_Object

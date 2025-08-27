@@ -1,0 +1,15 @@
+﻿Use Winuser.pkg
+
+#IFDEF GET_SHELLEXECUTE
+#ELSE
+
+External_Function ShellExecute "ShellExecuteW" Shell32.Dll ;
+    Pointer hWnd ;
+    WString lpOperation ;
+    WString lpFile ;
+    WString lpParameters ;
+    WString lpDirectory ;
+    Integer nShowCmd ;
+    Returns Handle
+   
+#ENDIF

@@ -1,0 +1,831 @@
+﻿Use cDatabaseTablesManager.pkg
+Use MSSqldrv.pkg
+Use cdmConnection.pkg
+Use EnumDrivers.pkg
+Use cColumnDef.pkg
+Use DatabaseManagerSingletons.pkg
+
+Enum_List
+    Define eOEM
+    Define eANSI
+End_Enum_List
+
+Enum_List
+    Define eErrNone
+    Define eErrColumnNames
+    Define eErrIdentityColumnCount
+    Define eErrIdentityColumnDataType
+    Define eErrIdentityColumnDriver
+End_Enum_List
+
+Register_Procedure OnLogDatabaseChange
+
+Class cTableDef is a cObject
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        { Category = "Table" }        
+        Property String  psTableName                ""
+        { Category = "Table" }  
+        Property String  psDescription              ""
+        { Category = "Table" }  
+        Property String  psOwner                    "dbo"
+        { Category = "Table" }  
+        { EnumList = "eDEFAULT,eDATAFLEX,eMSSQLDRV,eODBC_DRV,eDB2_DRV" InitialValue = eDEFAULT}
+        Property Integer peDriver                   eDEFAULT
+        { Category = "Table" }  
+        Property String  psConnection               ""              
+        { Category = "Table" }  
+        { EnumList = "eOEM,eANSI" InitialValue = eANSI}
+        Property String  peTableCharacterFormat     eANSI
+        { Category = "Table" }  
+        Property String  psRootName                 ""              // typically not set. Should only be set if the new table is an alias of another.
+        { Category = "Table" }  
+        Property Integer piFileNo                   AUTOASSIGN      // if left as 0 it will auto-assigned to be the next available slot
+        { Category = "Table" }  
+        Property Boolean pbRecnumTable              False
+        { Category = "Table" }  
+        Property Boolean pbFileCompression          True
+        { Category = "Table" }  
+        Property Boolean pbJITBinding               True
+        { Category = "Table" }  
+        Property Boolean pbSystemTable              False
+        // Setting pbRequired to False will (a) cause the table to NOT be created, and (b) cause the table to be deleted if found.
+        // It is used purely for deleting old tables no longer required to be a part of the database
+        { Category = "Table" }  
+        Property Boolean pbRequired                 True
+
+        { Visibility = Private }
+        Property Boolean pbCreateTable              False           // set automatically as a table is registered
+        { Visibility = Private }
+        Property Handle  phTempTable                                // set automatically as tables are worked on.
+
+        { Visibility = Private }
+        Property Handle[] paColumnObjects
+        { Visibility = Private }
+        Property Handle[] paIndexObjects
+        { Visibility = Private }
+        Property Handle[] paColumnMoves       
+        
+         { DesignTime = False }
+        Property Integer piErrorNumber
+        { DesignTime = False }
+        Property Integer piErrorLine
+        { DesignTime = False }
+        Property String  psErrorText
+        { Visibility = Private }
+        Property Handle  phoOldError  
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        String  sName
+        Integer iPos
+        
+        Delegate Send RegisterTableObject Self  
+        Get psTableName to sName
+        If (sName="") Begin
+            Get Name to sName
+            Move (RightPos('.',sName)) to iPos
+            Move (Right(sName,Length(sName)-iPos)) to sName 
+            Set psTableName to sName
+        End
+        Forward Send End_Construct_Object
+    End_Procedure
+    
+    Procedure RegisterColumnObject Handle hoColumn
+        Handle[] aColumns
+        Get paColumnObjects to aColumns
+        Move hoColumn to aColumns[-1]
+        Set paColumnObjects to aColumns
+        Set piColumn of hoColumn to (SizeOfArray(aColumns))
+    End_Procedure
+    
+    Procedure RegisterIndexObject Handle hoIndex
+        Integer  iIndex
+        Handle[] aIndexes
+        Get paIndexObjects to aIndexes
+        Move hoIndex to aIndexes[-1]
+        Set paIndexObjects to aIndexes
+        Get piIndex of hoIndex to iIndex
+        If (iIndex=0) Begin
+            Set piIndex of hoIndex to (SizeOfArray(aIndexes))
+        End
+    End_Procedure
+
+    // error trapping for this object
+    { MethodType = Event }
+    Procedure Error_Report Integer iErrorNumber Integer iErrorLine String sErrorText
+        Set piErrorLine   to iErrorLine
+        Set piErrorNumber to iErrorNumber
+        Set psErrorText   to sErrorText
+    End_Procedure
+    
+    Procedure TrapErrors
+        If (Error_Object_Id = Self) Begin
+            Error DFERR_PROGRAM "cConnection: TrapErrors called twice!"
+            Procedure_Return
+        End
+        Set phoOldError to Error_Object_Id
+        Set piErrorNumber to 0
+        Move Self to Error_Object_Id
+    End_Procedure
+    
+    Procedure UnTrapErrors
+        Get phoOldError to Error_Object_Id
+    End_Procedure
+    
+    Function psDriver Returns String
+        String  sDriver
+        Integer eDriver
+        
+        Get peDriver to eDriver
+        If (eDriver=eDEFAULT) Begin
+            Get peDefaultDriver of ghoDatabaseManager to eDriver    
+        End
+        Case Begin
+            Case (eDriver=eMSSQLDRV)
+                Move "MSSQLDRV" to sDriver
+                Case Break
+            Case (eDriver=eODBC_DRV)
+                Move "ODBC_DRV" to sDriver
+                Case Break    
+            Case (eDriver=eDB2_DRV)
+                Move "DB2_DRV" to sDriver
+                Case Break
+            Case Else
+                Move 'DATAFLEX' to sDriver      
+        Case End
+        Function_Return sDriver
+    End_Function
+     
+    { Visibility = Private }
+    Function OpenTable Integer hTable Boolean bExclusive Returns Boolean
+        Boolean bError bOpen bOk
+
+        Get_Attribute DF_FILE_OPENED of hTable to bOpen
+        If (bOpen) Begin
+            Close hTable
+        End
+        If (bExclusive) Begin
+            Open hTable mode df_exclusive
+            Get_Attribute DF_FILE_OPENED of hTable to bOk
+            Move (not(bOk)) to bError
+        End
+        Else Begin
+            Open hTable
+        End
+        Function_Return bError
+    End_Function
+
+    { Visibility = Private }
+    Function Connection Returns String
+        String sConnection
+        
+        Get psConnection to sConnection
+        If (sConnection="") Begin
+            Get DefaultConnectionId of ghoConnection to sConnection    
+        End
+        Function_Return (SFormat("DFCONNID=%1",sConnection))
+    End_Function
+    
+    { Visibility = Private }
+    Function TableRootName Returns String
+        String sRoot sLogical sDriver
+        
+        Get psTableName to sLogical
+        If (sLogical='') Begin
+            Error DFERR_OPERATION_NOT_ALLOWED "Table modification or creation cannot continue without a table name"    
+            Function_Return ''
+        End
+        Get psDriver to sDriver
+        If (sDriver=MSSQLDRV_ID) Begin
+            Move (MSSQLDRV_ID-':'+sLogical) to sRoot
+        End
+        Else ;
+            Move sLogical to sRoot        
+        Function_Return sRoot
+    End_Function
+    
+    { Visibility = Private }
+    Function ColumnNames Returns String[]
+        String[] aColumns
+        String sName sOwner
+
+        Get psTableName to sName
+        Get psOwner     to sOwner
+        Get SQLExecDirect of ghoSQLExecutor (SFormat(@SQL"""        
+        SELECT 
+          COLUMN_NAME 
+        FROM 
+          INFORMATION_SCHEMA.COLUMNS 
+        WHERE 
+          TABLE_NAME = '%1' 
+          AND TABLE_SCHEMA = '%2'
+        ORDER BY 
+          ORDINAL_POSITION;
+        """,sName,sOwner)) to aColumns        
+        Function_Return aColumns
+    End_Function
+    
+    { Visibility = Private }
+    Procedure OnInit
+        tdDbTable tTable  
+        Boolean bExists bFound
+        Handle  hoDatabaseTablesManager hTable
+        String  sName
+        Integer i j
+        Handle[] aColumns
+        
+        Delegate Get phoDatabaseTablesManager to hoDatabaseTablesManager
+        Get psTableName to sName
+        Get DoesTableExist of hoDatabaseTablesManager sName (&hTable) to bExists
+        If (bExists) Begin
+            Set piFileNo to hTable
+            Get CurrentTableDef of hoDatabaseTablesManager hTable to tTable
+            Get paColumnObjects to aColumns 
+            For i from 0 to (SizeOfArray(aColumns)-1)
+                For j from 1 to (SizeOfArray(tTable.aColumns)-1)
+                    Get ColumnMatch of aColumns[i] tTable.aColumns[j].sCol to bFound
+                    If (bFound) Begin
+                        Send OnInit of aColumns[i] tTable.aColumns[j] 
+                    End
+                    If (bFound) ;
+                        Break
+                Loop
+                If (not(bFound)) Begin
+                    Set peActionFlg of aColumns[i] to afCreate 
+                End
+            Loop    
+            Send CreateColumnObjectsForDeletion tTable
+            Send EstablishAnyColumnMoves
+        End
+        Else Begin
+            Set pbCreateTable to True
+        End
+    End_Procedure
+    
+    Function IsUpdateRequired Returns Boolean
+        Boolean bUpdate bRequired bFound bSystemTable
+        Integer iCol eActionFlg iIndex
+        Handle  hoDatabaseTablesManager hTable
+        Handle[] aColumns aIndexes
+        tdDbTable tTable 
+        
+        Get pbRequired to bRequired
+        If (not(bRequired)) Begin
+            Move True to bUpdate
+        End
+        Else Begin            
+            Get pbCreateTable to bUpdate
+            Get pbSystemTable to bSystemTable
+            If (not(bUpdate)) Begin
+                Get paColumnObjects to aColumns
+                For iCol from 0 to (SizeOfArray(aColumns)-1)
+                    Get peActionFlg of aColumns[iCol] to eActionFlg
+                    Move (eActionFlg<>afNone) to bUpdate 
+                    If (bUpdate) ;
+                        Break
+                Loop
+                If (not(bUpdate or bSystemTable)) Begin
+                    // need to consider index definitions...
+                    Get paIndexObjects to aIndexes
+                    Delegate Get phoDatabaseTablesManager to hoDatabaseTablesManager
+                    Get piFileNo to hTable
+                    Get CurrentTableDef of hoDatabaseTablesManager hTable to tTable                    
+                    Move (RemoveFromArray(tTable.aIndexes,0)) to tTable.aIndexes
+                    If (SizeOfArray(aIndexes)<>SizeOfArray(tTable.aIndexes)) Begin
+                        Move True to bUpdate
+                    End
+                    Else Begin
+                        For iIndex from 0 to (SizeOfArray(aIndexes)-1)
+                            Get IsSameIndexDefinition of aIndexes[iIndex] tTable.aIndexes[iIndex] to bFound
+                            If (not(bFound)) Begin
+                                Move True to bUpdate
+                            End
+                            If (bUpdate) ;
+                                Break
+                        Loop            
+                    End
+                End
+            End
+        End
+        Function_Return bUpdate
+    End_Function
+
+    // only call if creating or action says we need to amend
+    { Visibility = Private }
+    Procedure ApplyColumnSettings Handle hoColumn
+        Boolean bAction bCreateTable
+        String  sDriver sName
+        Handle  hTable hoTableHistory
+        Integer iCol iDfType iType iLength iPrecision iRelatedTable
+        Integer iAdjustment iRelatedCol eActionFlg iOld
+        
+        Get phTempTable to hTable
+        Get psDriver to sDriver
+        Get pbCreateTable to bCreateTable
+        Get piDF_Field_Old_Number of hoColumn to iOld
+        Get piPositionAdjustment  of hoColumn to iAdjustment
+        Get piColumn              of hoColumn to iCol
+        If (iOld>0 and iAdjustment=0) Begin
+            Move iOld to iCol
+        End
+        Get psName           of hoColumn to sName
+        Get peDfDataType     of hoColumn to iDfType
+        Get peNativeDataType of hoColumn to iType
+        Get piLength         of hoColumn to iLength
+        Get piPrecision      of hoColumn to iPrecision
+        Get piRelatedTable   of hoColumn to iRelatedTable
+        Get piRelatedColumn  of hoColumn to iRelatedCol
+        Get peActionFlg      of hoColumn to eActionFlg
+        Case Begin
+            Case (eActionFlg=afCreate)
+            Case (eActionFlg=afMove)
+                Move True to bAction
+                Case Break
+            Case Else
+                Move bCreateTable to bAction
+        Case End
+        
+        Set DetailStatus to sName
+        
+        If (bAction or IsFlagIn(afRename,eActionFlg)) Begin
+            Set_Attribute DF_FIELD_NAME of hTable iCol to sName
+        End
+        If (bAction or IsFlagIn(afChangeType,eActionFlg)) Begin
+            Set_Attribute DF_FIELD_TYPE of hTable iCol to iDfType
+        End
+        If (sDriver=MSSQLDRV_ID and (bAction or IsFlagIn(afChangeNativeType,eActionFlg))) Begin
+            Set_Attribute DF_FIELD_NATIVE_TYPE of hTable iCol to iType
+        End
+        If (bAction or IsFlagIn(afResize,eActionFlg)) Begin
+            If (iDfType <> DF_DATE) Begin
+                Set_Attribute DF_FIELD_LENGTH of hTable iCol to iLength
+            End
+            If (iDfType = DF_BCD) Begin
+                Set_Attribute DF_FIELD_PRECISION of hTable iCol to iPrecision
+            End
+        End
+        If (bAction or IsFlagIn(afChangeRelate,eActionFlg)) Begin
+            Set_Attribute DF_FIELD_RELATED_FILE  of hTable iCol to iRelatedTable
+            Set_Attribute DF_FIELD_RELATED_FIELD of hTable iCol to iRelatedCol
+        End 
+        If (iAdjustment<>0) Begin
+            Set_Attribute DF_FIELD_OLD_NUMBER of hTable iCol to iOld   
+        End
+        Get phoTableHistory to hoTableHistory
+        If (hoTableHistory>0 and hoTableHistory<>Self) Begin
+            If (bCreateTable) Begin
+                Move afCreate to eActionFlg
+            End
+            Send OnLogDatabaseChange of hoTableHistory (psTableName(Self)) sName eActionFlg
+        End
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure CreateColumnObjectsForDeletion tdDbTable tTable 
+        // There may be columns in the current database that we no longer require
+        // These won't have matching columns in our column objects array.
+        // So, let's create some extra columns!
+        Handle[] aColumnObjects
+        Integer  i j iOld_Number
+        Boolean  bFound
+        Handle   hoColumn
+        
+        Get paColumnObjects to aColumnObjects
+        For i from 1 to (SizeOfArray(tTable.aColumns)-1)
+            Move False to bFound
+            For j from 0 to (SizeOfArray(aColumnObjects)-1)
+                Get piDF_Field_Old_Number of aColumnObjects[j] to iOld_Number
+                If (tTable.aColumns[i].iCol=iOld_Number) Begin
+                    Move True to bFound       
+                End
+                If (bFound) ;
+                    Break
+            Loop
+            If (not(bFound)) Begin
+                // note that creating a column object will automatically register it and add it to the end of our paColumnObjects array
+                Get Create (RefClass(cColumnDef)) to hoColumn
+                Set psName                of hoColumn to tTable.aColumns[i].sCol
+                Set peDfDataType          of hoColumn to tTable.aColumns[i].iDfType
+                Set peNativeDataType      of hoColumn to tTable.aColumns[i].iNativeType
+                Set piLength              of hoColumn to tTable.aColumns[i].iLength
+                Set piPrecision           of hoColumn to tTable.aColumns[i].iPrecision
+                Set piRelatedTable        of hoColumn to tTable.aColumns[i].iRelatedTable
+                Set piRelatedColumn       of hoColumn to tTable.aColumns[i].iRelatedCol
+                Set piDF_Field_Old_Number of hoColumn to tTable.aColumns[i].iCol
+                Set peActionFlg           of hoColumn to afDelete    // important!
+            End
+        Loop
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure RepositionColumnInArray Handle[] ByRef aColumns Integer iPosition Integer iAdjustment
+        Handle hoColumn
+        Move aColumns[iPosition] to hoColumn
+        Move (RemoveFromArray(aColumns,iPosition)) to aColumns
+        Move (InsertInArray(aColumns,iPosition+iAdjustment,hoColumn)) to aColumns
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure EstablishAnyColumnMoves
+        Handle[] aColumns aRequired aCurrent aColumnMoves
+        Integer i iOld_Number iCol iDifference iBiggestDifference iIndex eActionFlg
+        Boolean bComplete
+
+        Get paColumnObjects to aColumns        
+        // only interested in existing columns, so we can discard any new ones
+        For i from 0 to (SizeOfArray(aColumns)-1)
+            Get piDF_Field_Old_Number of aColumns[i] to iOld_Number
+            // iOld_Number will be zero if this is a new column
+            If (iOld_Number>0) Begin
+                Move aColumns[i] to aRequired[-1]   
+            End
+        Loop
+        // columns in the existing (found) structure that are no longer required will be deleted and 
+        // the process will have already created 'dummy' column objects within paColumnObjects for this.
+        // piDF_Field_Old_Number will hold the number it was found at, whilst iCol will be the new place we want to move it to 
+        // (which will be at the end of the table, where it will eventually be deleted)
+        // Start with populating aCurrent which will do in the order of iOld_Number
+        For i from 0 to (SizeOfArray(aRequired)-1)
+            Set piColumn              of aRequired[i] to (i+1)  // need to reset these values now that we may have removed columns that get created later on.
+            Get piDF_Field_Old_Number of aRequired[i] to iOld_Number
+            Move aRequired[i] to aCurrent[iOld_Number]    
+        Loop
+        Move (RemoveFromArray(aCurrent,0)) to aCurrent // because slot 0 will be blank - therefore we can discard it.
+        Repeat
+            // loop through our array looking for the biggest abs difference between the current position and the required position     
+            Move 0 to iBiggestDifference
+            For i from 0 to (SizeOfArray(aCurrent)-1)
+                Get piColumn of aCurrent[i] to iCol            // the required position
+                Move (iCol-i-1) to iDifference
+                Case Begin
+                    Case (Abs(iDifference)>Abs(iBiggestDifference))
+                    Case (Abs(iDifference)=Abs(iBiggestDifference) and iDifference<iBiggestDifference)
+                        Move iDifference to iBiggestDifference
+                        Move i to iIndex       
+                        Case Break
+                Case End
+            Loop
+            Move (iBiggestDifference=0) to bComplete
+            If (not(bComplete)) Begin
+                Move aCurrent[iIndex] to aColumnMoves[-1]
+                Set piPositionAdjustment  of aCurrent[iIndex] to iBiggestDifference
+                Get piColumn              of aCurrent[iIndex] to iCol
+                Set piDF_Field_Old_Number of aCurrent[iIndex] to (iCol-iBiggestDifference)  // as columns are moved so will it affect the index they will be found at
+                Get peActionFlg           of aCurrent[iIndex] to eActionFlg
+                Set peActionFlg           of aCurrent[iIndex] to (AddBitValue(afMove,eActionFlg))
+                
+                Send RepositionColumnInArray (&aCurrent) iIndex iBiggestDifference
+            End
+        Until bComplete // at this point, piPositionAdjustment should be set for all the columns that need moving. 
+        Set paColumnMoves to aColumnMoves
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure DoUpdate
+        Boolean bCreateTable bSystem bRecnum bJITBinding bCompression
+        Boolean bAlias bError bIdentity bPrime bRequired
+        String  sName sDescription sRoot sOwner sConnection sCharacterFormat sDriver
+        Handle  hTable 
+        Integer i eCharacterFormat iCol eFlag iOld_No iCols iIndex
+        Handle[] aColumns aIndexes aSegments aColumnsToMove
+                
+        Get psTableName            to sName
+        Get psDescription          to sDescription
+        Get psRootName             to sRoot
+        Move (sRoot>'')            to bAlias
+        Get pbSystemTable          to bSystem
+        Get psOwner                to sOwner
+        Get Connection             to sConnection
+        Get peTableCharacterFormat to eCharacterFormat
+        Get pbRecnumTable          to bRecnum
+        Get pbJITBinding           to bJITBinding
+        Get pbFileCompression      to bCompression
+        Get psDriver               to sDriver 
+        Get piFileNo               to hTable
+        Get pbCreateTable          to bCreateTable 
+        Get pbRequired             to bRequired
+        If (not(bRequired)) Begin
+            Close hTable
+            Send DeleteTable hTable sName
+            Procedure_Return     
+        End
+        If (sDescription='') Begin
+            Move sName to sDescription
+        End
+        If (not(bAlias)) Begin
+            Get TableRootName to sRoot   
+        End
+        If (not(bCreateTable)) Begin
+            Get OpenTable hTable True to bError
+        End
+        Set ComponentStatus to sName
+        Get paColumnObjects to aColumns
+        Get paIndexObjects  to aIndexes
+        
+        If (not(bAlias)) Begin
+            If (bCreateTable) Begin
+                Set DetailStatus to "Creating"
+                Move 0 to hTable
+                
+                Structure_Start hTable sDriver
+                Set phTempTable to hTable
+                Set_Attribute DF_FILE_IS_SYSTEM_FILE of hTable to bSystem
+                If (sDriver=MSSQLDRV_ID) Begin
+                    Set_Attribute DF_FILE_PHYSICAL_NAME          of hTable to (SFormat("%1.int",sName))
+                    Set_Attribute DF_FILE_RECNUM_TABLE           of hTable to bRecnum
+                    Set_Attribute DF_FILE_LOGIN                  of hTable to sConnection
+                    Set_Attribute DF_FILE_OWNER                  of hTable to sOwner
+                    Set_Attribute DF_FILE_TABLE_CHARACTER_FORMAT of hTable to (If(eCharacterFormat=eANSI,"ANSI","OEM"))
+                    Set_Attribute DF_FILE_JIT_BINDING            of hTable to bJITBinding
+                End
+                Else If (sDriver="DATAFLEX") Begin
+                    Set_Attribute DF_FILE_PHYSICAL_NAME          of hTable to sName
+                    Set_Attribute DF_FILE_RECNUM_TABLE           of hTable to True
+                    If (bCompression) Begin
+                        Set_Attribute DF_FILE_COMPRESSION        of hTable to DF_FILE_COMPRESS_STANDARD
+                    End
+                    Else Begin
+                        Set_Attribute DF_FILE_COMPRESSION        of hTable to DF_FILE_COMPRESS_NONE
+                    End
+                End   
+                For i from 0 to (SizeOfArray(aColumns)-1)
+                    Get piColumn of aColumns[i] to iCol
+                    Create_Field hTable at iCol
+                    Send ApplyColumnSettings aColumns[i]
+                    Get pbIdentityColumn of aColumns[i] to bIdentity
+                    If (bIdentity) Begin
+                        Set_Attribute DF_FIELD_IS_IDENTITY of hTable iCol to True    
+                    End
+                Loop
+                // need to create the primary index (if we don't do it now, we will get an error)
+                For i from 0 to (SizeOfArray(aIndexes)-1)
+                    Get pbPrimaryIndex of aIndexes[i] to bPrime
+                    If (bPrime) Begin
+                        Send CreateIndex aIndexes[i]
+                    End
+                Loop
+            End
+            Else Begin
+                Set DetailStatus to "Updating"
+                Structure_Start hTable sDriver    
+                Set phTempTable to hTable
+                
+                // kill all indexes apart from the prime/SQL primary key
+                // we will rebuild them afterwards but ONLY once we've had the chance to populate the tables
+                Send DeleteIndexes 
+                
+                // column-wise, first of all let's deal with current columns. We will ignore any new ones...
+                For i from 0 to (SizeOfArray(aColumns)-1)
+                    Get piDF_Field_Old_Number of aColumns[i] to iOld_No
+                    If (iOld_No>0) Begin
+                        Get peActionFlg of aColumns[i] to eFlag
+                        If (eFlag<>afNone and eFlag<>afMove) Begin
+                            Send ApplyColumnSettings aColumns[i]    
+                        End
+                    End
+                Loop
+                // now we need to see if columns are being moved. Note that this includes those that we no longer require, which we will move to the end.
+                Get paColumnMoves to aColumnsToMove
+                If (SizeOfArray(aColumnsToMove)>0) Begin
+                    For i from 0 to (SizeOfArray(aColumnsToMove)-1)
+                        Get piColumn              of aColumnsToMove[i] to iCol
+                        Get piDF_Field_Old_Number of aColumnsToMove[i] to iOld_No
+                        Delete_Field hTable iOld_No
+                        Create_Field hTable at iCol
+                        Send ApplyColumnSettings aColumnsToMove[i]   
+                    Loop                
+                End
+                
+                // now create new columns as required (which we do after we've done any moving)
+                For i from 0 to (SizeOfArray(aColumns)-1)
+                    Get peActionFlg of aColumns[i] to eFlag
+                    If (eFlag=afCreate) Begin
+                        Get piColumn of aColumns[i] to iCol
+                        Create_Field hTable at iCol
+                        Send ApplyColumnSettings aColumns[i]            
+                    End
+                Loop 
+                
+                // and delete columns that we don't need ...
+                // work from the bottom up.
+                Move (SizeOfArray(aColumns)) to iCols
+                For i from 1 to iCols
+                    Get peActionFlg of aColumns[iCols-i] to eFlag
+                    If (eFlag=afDelete) Begin
+                        Get piColumn of aColumns[iCols-i] to iCol
+                        Delete_Field hTable iCol      
+                    End
+                Loop
+            End 
+            Structure_End hTable DF_STRUCTEND_OPT_NONE
+        End
+        
+        If (bCreateTable) Begin
+            If (piFileNo(Self)=0) Begin
+                Get_Attribute DF_FILE_NEXT_EMPTY to hTable
+                Set piFileNo to hTable
+            End
+            Get piFileNo to hTable
+            Set_Attribute DF_FILE_LOGICAL_NAME of hTable to sName
+            Set_Attribute DF_FILE_DISPLAY_NAME of hTable to sDescription
+            Set_Attribute DF_FILE_ROOT_NAME    of hTable to sRoot
+        End
+        Get piFileNo to hTable
+        Get OpenTable hTable True to bError
+        If (not(bAlias)) Begin            
+            If (bCreateTable) Begin
+                Set DetailStatus to "Populating"
+                Send OnCreate
+            End
+            Else Begin
+                Set DetailStatus to "Populating"
+                For i from 0 to (SizeOfArray(aColumns)-1)
+                    Get peActionFlg of aColumns[i] to eFlag
+                    If (eFlag=afCreate) Begin
+                        Send OnCreate of aColumns[i]         
+                    End
+                    Else Begin
+                        Case Begin
+                            Case (IsFlagIn(afResize,eFlag))
+                            Case (IsFlagIn(afChangeType,eFlag))
+                            Case (IsFlagIn(afChangeNativeType,eFlag))
+                            Case (IsFlagIn(afChangeRelate,eFlag))
+                                Send OnChange of aColumns[i]
+                                Case Break                            
+                        Case End
+                    End
+                Loop  
+            End
+            // create indexes
+            Set DetailStatus to "Indexes"
+            Structure_Start hTable sDriver    
+            Set phTempTable to hTable
+            For i from 0 to (SizeOfArray(aIndexes)-1)
+                Get pbPrimaryIndex of aIndexes[i] to bPrime
+                If (not(bPrime)) Begin
+                    Send CreateIndex aIndexes[i]    
+                End
+            Loop
+            // Field index settings
+            For i from 0 to (SizeOfArray(aColumns)-1)
+                Get piFieldIndex of aColumns[i] to iIndex
+                Get piColumn     of aColumns[i] to iCol
+                If (iIndex>AUTOASSIGN) Begin
+                    Set_Attribute DF_FIELD_INDEX of hTable iCol to iIndex
+                End
+            Loop   
+            Structure_End hTable DF_STRUCTEND_OPT_NONE
+            Get piFileNo to hTable
+            Get OpenTable hTable True to bError
+        End
+    End_Procedure
+
+    { Visibility = Private }
+    Function ValidateColumns Returns Integer
+        Integer eError i j iIndex
+        Boolean  bIdentity
+        Handle[] aColumns      
+        String[] aAllColumnNames aColumnNames
+        
+        Get paColumnObjects to aColumns
+        For i from 0 to (SizeOfArray(aColumns)-1)
+            Move (ResizeArray(aColumnNames,1)) to aColumnNames
+            Get psName of aColumns[i] to aColumnNames[0]
+            Move (AppendArray(aColumnNames,paNameHistory(aColumns[i]))) to aColumnNames
+            For j from 0 to (SizeOfArray(aColumnNames)-1)
+                Move (SearchArray(aColumnNames[j],aAllColumnNames,Desktop,RefFunc(DFSTRICMP))) to iIndex
+                If (iIndex>-1) Begin
+                    Move eErrColumnNames to eError
+                End
+                Else Begin
+                    Move aColumnNames[j] to aAllColumnNames[-1]
+                End
+                If (eError>eErrNone) ;
+                    Break    
+            Loop
+            If (eError=eErrNone) Begin
+                If (pbIdentityColumn(aColumns[i])) Begin
+                    If (not(bIdentity)) Begin
+                        Move True to bIdentity
+                        If (peDfDataType(aColumns[i])<>DF_BCD) Begin
+                            Move eErrIdentityColumnDataType to eError
+                        End
+                        Else If (psDriver(Self)="DATAFLEX") Begin
+                            Move eErrIdentityColumnDriver to eError    
+                        End
+                    End
+                    Else Begin
+                        Move eErrIdentityColumnCount to eError
+                    End
+                End
+            End 
+            If (eError>eErrNone) ;
+                Break
+        Loop
+        Function_Return eError
+    End_Function                
+
+    { Visibility = Private }
+    Procedure CreateIndex Handle hoIndex
+        Integer i iSegment iSegments iCol hTable iIndex iType iGiven iPos
+        Boolean bFound bPrimary bSqlPrimaryKey bDescending bIgnoreCase
+        Handle  hoSegment
+        String  sColumn
+        Handle[] aIndexes aSegments
+        String[] aColumns
+        
+        Get phTempTable to hTable
+        Get paIndexObjects to aIndexes
+        Get piIndexType     of hoIndex to iType
+        Get pbPrimaryIndex  of hoIndex to bPrimary
+        Get pbSqlPrimaryKey of hoIndex to bSqlPrimaryKey
+        Get paIndexSegments of hoIndex to aSegments
+        Move (SizeOfArray(aSegments))  to iSegments
+        
+        Create_Index hTable at iIndex
+        Set piAssignedIndex of hoIndex to iIndex
+        Set_Attribute DF_INDEX_TYPE            of hTable iIndex to iType
+        Set_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments
+        For iSegment from 1 to iSegments
+            Move aSegments[iSegment-1] to hoSegment
+            Get pbIgnoreCase of hoSegment to bIgnoreCase
+            Get pbDescending of hoSegment to bDescending
+            Get ColumnNames to aColumns
+            Get psColumn of hoSegment to sColumn
+            If (sColumn="") Begin
+                Get Name of hoSegment to sColumn
+                Move (RightPos('.',sColumn)) to iPos
+                Move (Right(sColumn,Length(sColumn)-iPos)) to sColumn   
+            End
+            Move (SearchArray(sColumn,aColumns,Desktop,RefFunc(DFSTRICMP))) to iCol
+            If (iCol>-1) Begin
+                Increment iCol
+                                
+                Set_Attribute DF_INDEX_SEGMENT_FIELD     of hTable iIndex iSegment to iCol
+                Set_Attribute DF_INDEX_SEGMENT_DIRECTION of hTable iIndex iSegment to (If(bDescending,DF_DESCENDING,DF_ASCENDING))
+                Set_Attribute DF_INDEX_SEGMENT_CASE      of hTable iIndex iSegment to (If(bIgnoreCase,DF_CASE_IGNORED,DF_CASE_USED))
+                If (bPrimary) Begin
+                    Set_Attribute DF_FILE_PRIMARY_INDEX of hTable to iIndex    
+                End
+                If (bSqlPrimaryKey) Begin
+                    Set_Attribute DF_INDEX_SQL_PRIMARY_KEY of hTable iIndex to True   
+                End
+            End
+        Loop
+        Get piIndex of hoIndex to iGiven
+        If (iGiven>0 and iGiven<>iIndex) Begin
+            Set_Attribute DF_INDEX_NUMBER of hTable iIndex to iGiven  
+        End
+    End_Procedure 
+
+    { Visibility = Private }
+    Procedure DeleteIndexes 
+        Handle  hTable
+        Integer iMaxIndex iIndex iSegments iFile iPrimary
+        Boolean bPrimary
+        
+        Get phTempTable to hTable
+        Get_Attribute DF_FILE_PRIMARY_INDEX     of hTable to iPrimary
+        Get_Attribute DF_FILE_LAST_INDEX_NUMBER of hTable to iMaxIndex
+        For iIndex from 1 to iMaxIndex
+            If (iIndex<>iPrimary) Begin
+                Get_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments
+                If (iSegments>0) Begin
+                    Get_Attribute DF_INDEX_SQL_PRIMARY_KEY of hTable iIndex to bPrimary
+                    If (not(bPrimary)) Begin
+                        Delete_Index hTable iIndex
+                    End 
+                End
+            End
+        Loop
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure DeleteTable Integer hTable String sTable
+        String  sName
+        Boolean bOpen
+        
+        Set DetailStatus to "Deleting"
+        Send TrapErrors
+        Get_Attribute DF_FILE_LOGICAL_NAME of hTable to sName
+        If (Uppercase(sName)=Uppercase(sTable)) Begin
+            Get_Attribute DF_FILE_OPENED of hTable to bOpen
+            If (not(bOpen)) Begin
+                Open hTable
+                ZeroFile  hTable
+                Delete_db hTable
+                Set_Attribute DF_FILE_LOGICAL_NAME of hTable to ''
+                Set_Attribute DF_FILE_ROOT_NAME    of hTable to ''
+                Set_Attribute DF_FILE_DISPLAY_NAME of hTable to ''
+            End
+        End
+        Send UnTrapErrors
+    End_Procedure
+
+    { MethodType = Event }
+    Procedure OnCreate
+    End_Procedure     
+End_Class

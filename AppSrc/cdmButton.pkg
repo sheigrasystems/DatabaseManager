@@ -1,0 +1,90 @@
+﻿Use Windows.pkg
+
+{ Visibility = Private }
+Class cdmButtonIdleHandler is a cIdleHandler
+    
+    Procedure OnIdle
+        Integer  iSeconds iSpanSeconds
+        TimeSpan tsSpan
+        DateTime dtNow dtLast
+    
+        Delegate Get piTimerActiveSeconds to iSeconds
+        If (iSeconds>0) Begin
+            Move (CurrentDateTime()) to dtNow
+            Delegate Get pdtUpdateLastFired to dtLast
+            If (not(IsNullDateTime(dtLast))) Begin
+                Move (dtNow-dtLast) to tsSpan
+                Move ((SpanMinutes(tsSpan)*60)+SpanSeconds(tsSpan)) to iSpanSeconds
+                If (iSpanSeconds<iSeconds) Begin
+                    Procedure_Return 
+                End
+            End    
+            Set pdtUpdateLastFired to dtNow
+        End
+        Delegate Send TestEnabled
+    End_Procedure
+End_Class
+
+Class cdmButton is a Button
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        { Visibility = Private }
+        Object oIdleHandler is a cdmButtonIdleHandler 
+        End_Object
+        
+        { Category = "Behaviour" }
+        Property Boolean pbTimerActive          False
+        { Category = "Behaviour" }   
+        Property Integer piTimerActiveSeconds   0
+        { Category = "Behaviour" }   
+        Property Boolean pbOnEscKeyClosePanel   True     
+    
+        { Visibility = Private }
+        Property DateTime pdtUpdateLastFired
+
+        On_Key Key_Escape Send OnKeyEsc 
+    End_Procedure
+
+    { MethodType = Event }
+    Procedure OnEnabled Boolean ByRef bEnabled
+    End_Procedure
+    
+    { MethodType = Event }
+    Procedure OnKeyEsc
+        Boolean bOnEscKeyClosePanel
+        
+        Get pbOnEscKeyClosePanel to bOnEscKeyClosePanel
+        If (bOnEscKeyClosePanel) Begin
+            Send Close_Panel    
+        End
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure TestEnabled
+        Boolean bEnabled
+        
+        Move True to bEnabled
+        Send OnEnabled (&bEnabled)
+        Set Enabled_State to bEnabled
+    End_Procedure
+    
+    Procedure Activating
+        Boolean bTimerActive
+        
+        Forward Send Activating
+        Get pbTimerActive to bTimerActive
+        Set pbEnabled of oIdleHandler to bTimerActive
+    End_Procedure
+    
+    Procedure Deactivating
+        Handle hoTimer
+        
+        Get Object_Id of oIdleHandler to hoTimer
+        If (hoTimer>0) Begin
+            Set pbEnabled of hoTimer to False
+        End
+        Forward Send Deactivating
+    End_Procedure
+End_Class

@@ -1,0 +1,142 @@
+﻿Use DfAllEnt.pkg
+Use cdmConnection.pkg
+
+Class cColumnDef is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        { Category = "Column" }
+        Property String  psName                 // leave blank and the name will be taken from the DataFlex Column Object
+        { Category = "Column" }
+        { EnumList = "DF_ASCII,DF_BCD,DF_TEXT,DF_DATE" InitialValue=AUTOASSIGN}
+        Property Integer peDfDataType           AUTOASSIGN
+        { Category = "Column" }
+        Property Integer piLength               0
+        { Category = "Column" }                 
+        Property Integer piPrecision            0
+        { Category = "Column" }                 
+        Property Integer piRelatedTable         0
+        { Category = "Column" }                 
+        Property Integer piRelatedColumn        0
+        { Category = "Column" }                 
+        Property Boolean pbIdentityColumn       False
+        { Category = "Column" }
+        Property Integer piFieldIndex           AUTOASSIGN         
+        
+        { Visibility = Private }
+        Property Integer pePrivateNativeType    SQL_CHAR
+        { Visibility = Private }
+        Property Integer piColumn                   // set automatically to be the column index that we want the column to be in at the end of the process
+        { Visibility = Private }
+        Property String[] paNameHistory
+        
+        { Visibility = Private }
+        Property Integer piDF_Field_Old_Number  0   // 0 means it is new. It will be set by the process
+                                                    // by looking at the current structure and comparing the 'piDF_Field_Old_Number' values
+                                                    // it should be possible to identify columns in the current structure that we no longer require.
+                                                    // For example, if none of our columns have a piDF_Field_Old_Number value of 4, then column 4 is pressumably no longer needed.
+                                                    // Note that piDF_Field_Old_Number may need adjusting during the process, once we start inserting fields (or whatevs).                                               
+        { Visibility = Private }
+        Property Integer peActionFlg            afNone
+        { Visibility = Private }
+        Property Integer piPositionAdjustment   0   // used internally when repositioning/moving columns
+        
+        Delegate Send RegisterColumnObject Self
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        String  sName
+        Integer iPos
+        
+        Get psName to sName
+        If (sName="") Begin
+            Get Name to sName
+            Move (RightPos('.',sName)) to iPos
+            Move (Right(sName,Length(sName)-iPos)) to sName 
+            Set psName to sName
+        End
+        Forward Send End_Construct_Object
+    End_Procedure
+
+    { MethodType = Property }
+    { Category = "Column" }
+    { EnumList = "SQL_CHAR,SQL_VARCHAR,SQL_WCHAR,SQL_WVARCHAR,SQL_WVARCHARMAX,SQL_INTEGER,SQL_SMALLINT,SQL_TINYINT,SQL_NUMERIC,SQL_TYPE_TIMESTAMP,SQL_DATETIME,SQL_TYPE_DATE" InitialValue=SQL_CHAR} 
+    Procedure Set peNativeDataType Integer eDataType
+        Integer iDfType
+        Set pePrivateNativeType to eDataType
+        Get SqlTypeToDfType of ghoConnection eDataType to iDfType
+        Set peDfDataType to iDfType  
+    End_Procedure   
+    
+    Function peNativeDataType Returns Integer
+        Integer eType
+        Get pePrivateNativeType to eType
+        Function_Return eType
+    End_Function
+    
+    Procedure Set psFormerName String sName
+        String[] aHistory
+        Get paNameHistory to aHistory
+        Move sName to aHistory[-1]
+        Set paNameHistory to aHistory
+    End_Procedure
+        
+    { Visibility = Private }
+    Function ColumnMatch String sCol Returns Boolean
+        Boolean bOk
+        String  sName
+        String[] aNameHistory
+        
+        Get psName to sName
+        Move (Uppercase(Trim(sCol))=Uppercase(Trim(sName))) to bOk
+        If (not(bOk)) Begin
+            Get paNameHistory to aNameHistory
+            Move (SearchArray(sCol,aNameHistory,Desktop,RefFunc(DFSTRICMP))>-1) to bOk
+        End
+        Function_Return bOk
+    End_Function
+    
+    { Visibility = Private }
+    Procedure OnInit tdColumnDef tColumn
+        String  sName
+        Integer iDfType iNativeType iPrecision iLength iRelatedTable iRelatedCol eActionFlg
+        
+        Get psName to sName
+        Get peDfDataType to iDfType
+        Get peNativeDataType to iNativeType
+        Get piLength to iLength
+        Get piPrecision to iPrecision
+        Get piRelatedTable to iRelatedTable
+        Get piRelatedColumn to iRelatedCol 
+        
+        Move afNone to eActionFlg
+        If (tColumn.sCol<>Uppercase(sName)) Begin
+            Move (AddBitValue(afRename,eActionFlg)) to eActionFlg
+        End
+        If (tColumn.iDfType<>iDfType) Begin
+            Move (AddBitValue(afChangeType,eActionFlg)) to eActionFlg    
+        End
+        If (tColumn.iNativeType<>iNativeType) Begin
+            Move (AddBitValue(afChangeNativeType,eActionFlg)) to eActionFlg    
+        End
+        If (tColumn.iLength<>iLength or tColumn.iPrecision<>iPrecision) Begin
+            If (iDfType<>DF_DATE) Begin    
+                Move (AddBitValue(afResize,eActionFlg)) to eActionFlg     
+            End
+        End
+        If (tColumn.iRelatedTable<>iRelatedTable or tColumn.iRelatedCol<>iRelatedCol) Begin
+            Move (AddBitValue(afChangeRelate,eActionFlg)) to eActionFlg     
+        End
+        Set piDF_Field_Old_Number to tColumn.iCol 
+        Set peActionFlg to eActionFlg   
+    End_Procedure
+    
+    { MethodType = Event }
+    Procedure OnCreate
+    End_Procedure
+    
+    { MethodType = Event }
+    Procedure OnChange
+    End_Procedure    
+End_Class

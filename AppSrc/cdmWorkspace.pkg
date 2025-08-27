@@ -1,0 +1,46 @@
+﻿Use cWorkspace.pkg
+Use cFileListHander.pkg
+
+Class cdmWorkspace is a cWorkspace
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        { DesignTime = False }
+        Property Handle phoFilelistHandler
+        
+        Object oFilelistHandler is a cFileListHander
+            Set phoFilelistHandler to Self
+        End_Object
+    End_Procedure
+    
+    Function OpenWorkspaceFile String sWorkspaceFile Returns Integer
+        Integer eError
+        String  sDataPath
+        
+        Forward Get OpenWorkspaceFile sWorkspaceFile to eError
+        If (eError=wsFileListEmpty) Begin
+            Get psDataPath to sDataPath
+            If (Right(sDataPath,1)<>SysConf(SYSCONF_DIR_SEPARATOR)) Begin
+                Move (sDataPath+SysConf(SYSCONF_DIR_SEPARATOR)) to sDataPath
+            End
+            Set psFileList to (sDataPath+'Filelist.cfg')
+            Forward Get OpenWorkspaceFile sWorkspaceFile to eError   
+        End
+        If (eError=wsFileListNotExist) Begin
+            Send CreateNewFileList of oFilelistHandler
+            Forward Get OpenWorkspaceFile sWorkspaceFile to eError           
+        End
+        Function_Return eError
+    End_Function
+
+    Function WorkspaceExists String sWorkspace Returns Boolean
+        String sPath
+
+        Get GetApplicationPath to sPath
+        If (Right(sPath,1)<>SysConf(SYSCONF_DIR_SEPARATOR)) Begin
+            Move (sPath+SysConf(SYSCONF_DIR_SEPARATOR)) to sPath
+        End
+        Function_Return (DoesFileExist(sPath-sWorkspace))
+    End_Function 
+End_Class

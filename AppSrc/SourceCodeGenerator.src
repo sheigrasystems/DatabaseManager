@@ -1,0 +1,311 @@
+﻿Use DfAllEnt.pkg
+Use cdmApplication.pkg
+Use cdmConnection.pkg
+
+Object oApplication is a cdmApplication
+
+    Object oConnection is a cdmConnection
+        Set psConnectionIni to "DFConnId.ini"
+        Use LoginEncryption.pkg
+        Use DatabaseLoginDialog.dg
+    End_Object
+End_Object
+
+Use Batchdd.pkg
+Use seq_chnl.pkg
+Use tdDbTable.pkg
+
+Object oSourceCodeGenerator is a BusinessProcess
+    Set Process_Caption to "Source Code Generator"
+    Set Process_Title   to "Generating Source Files"
+    Set Process_Message to "Please wait..."
+
+    Set Status_Log_Id      to Self
+    Set Status_Log_State   to True
+            
+    { Visibility = Private }
+    Property Integer piStatusLogCh 
+    
+    Procedure Log_Status String sMsg
+        Integer iCh
+        Get piStatusLogCh to iCh
+        Writeln channel iCh sMsg
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure Start_Log
+        Integer iCh 
+        String  sPath sFile
+        Boolean bExists
+
+        Get psAppSrcPath of (phoWorkspace(ghoApplication)) to sPath
+        Move (sPath+'\DatabaseManger.src') to sFile
+        Move (DoesFileExist(sPath)) to bExists
+        If (not(bExists)) Begin
+            Make_Directory sPath
+        End
+        Move (sPath+'\Tables') to sPath
+        Move (DoesFileExist(sPath)) to bExists
+        If (not(bExists)) Begin
+            Make_Directory sPath
+        End        
+        Move (Seq_New_Channel()) to iCh
+        Set piStatusLogCh to iCh
+        Direct_Output channel iCh sFile
+        Send Log_Status "Use DfAllEnt.pkg"
+        Send Log_Status "Use cdmApplication.pkg"
+        Send Log_Status "Use cdmConnection.pkg"
+        Send Log_Status "Use cDatabaseManager.pkg"
+        Send Log_Status ""
+        Send Log_Status "Object oApplication is a cdmApplication"
+        Send Log_Status ""
+        Send Log_Status "    Object oConnection is a cdmConnection"
+        Send Log_Status "        Use LoginEncryption.pkg"
+        Send Log_Status "        Use DatabaseLoginDialog.dg"
+        Send Log_Status "    End_Object"
+        Send Log_Status "End_Object"
+        Send Log_Status ""
+
+        Send Log_Status "Object oDatabaseManager is a cDatabaseManager"
+        Send Log_Status "    Use TableHistory.pkg"
+        Send Log_Status ""
+    End_Procedure
+
+    { Visibility = Private }
+    Procedure End_Log
+        Integer iCh
+        
+        Send Log_Status "End_Object" 
+        Send Log_Status ""
+        Send Log_Status "Start_UI"
+        Get piStatusLogCh to iCh
+        Close_Output channel iCh
+        Send Seq_Release_Channel iCh
+    End_Procedure 
+    
+    Procedure OnProcess
+        Handle  hTable
+        Integer iIndex iCol iCols iMaxIndex iSegments iSegment iCase iDirection iCh iCompression iPrime
+        Boolean bOpen bSystem bJIT bRecnum bIdentity
+        String  sDriver sCol sPath sFile sOwner sCharFormat sDescription sRoot
+        tdDbTable tTable tInit
+
+        Get psAppSrcPath of (phoWorkspace(ghoApplication)) to sPath
+        Move (sPath+'\Tables\') to sPath
+        Move (Seq_New_Channel()) to iCh
+        Move 0 to hTable
+        Repeat
+            Get_Attribute DF_FILE_NEXT_USED of hTable to hTable
+            If (hTable>0) Begin
+                Move tInit to tTable
+                Get_Attribute DF_FILE_LOGICAL_NAME of hTable to tTable.sName
+                Send Update_Status tTable.sName
+                
+                Move hTable to tTable.iFileNo
+                Get_Attribute DF_FILE_OPENED of hTable to bOpen
+                If (not(bOpen)) Begin
+                    Open hTable
+                End
+                Get_Attribute DF_FILE_IS_SYSTEM_FILE         of hTable to bSystem
+                Get_Attribute DF_FILE_RECNUM_TABLE           of hTable to bRecnum
+                Get_Attribute DF_FILE_DRIVER                 of hTable to sDriver
+                Get_Attribute DF_FILE_DISPLAY_NAME           of hTable to sDescription
+                Get_Attribute DF_FILE_ROOT_NAME              of hTable to sRoot
+                
+                If (sDriver=MSSQLDRV_ID) Begin
+                    Get_Attribute DF_FILE_OWNER              of hTable to sOwner
+                    Get_Attribute DF_FILE_JIT_BINDING        of hTable to bJIT
+                End
+                Else Begin
+                    Get_Attribute DF_FILE_COMPRESSION        of hTable to iCompression         
+                End
+                Get_Attribute DF_FILE_NUMBER_FIELDS  of hTable to iCols
+                Move (ResizeArray(tTable.aColumns,iCols+1)) to tTable.aColumns
+                For iCol from 1 to iCols
+                    Get_Attribute DF_FIELD_NAME          of hTable iCol to tTable.aColumns[iCol].sCol
+                    Get_Attribute DF_FIELD_NUMBER        of hTable iCol to tTable.aColumns[iCol].iCol
+                    Get_Attribute DF_FIELD_TYPE          of hTable iCol to tTable.aColumns[iCol].iDfType
+                    Get_Attribute DF_FIELD_LENGTH        of hTable iCol to tTable.aColumns[iCol].iLength
+                    Get_Attribute DF_FIELD_PRECISION     of hTable iCol to tTable.aColumns[iCol].iPrecision
+                    Get_Attribute DF_FIELD_RELATED_FILE  of hTable iCol to tTable.aColumns[iCol].iRelatedTable
+                    Get_Attribute DF_FIELD_RELATED_FIELD of hTable iCol to tTable.aColumns[iCol].iRelatedCol
+                    
+                    If (sDriver=MSSQLDRV_ID) Begin
+                        Get_Attribute DF_FIELD_NATIVE_TYPE           of hTable iCol to tTable.aColumns[iCol].iNativeType
+                        Get_Attribute DF_FIELD_NATIVE_TYPE_NAME      of hTable iCol to tTable.aColumns[iCol].sNativeType
+                        Get_Attribute DF_FILE_TABLE_CHARACTER_FORMAT of hTable to sCharFormat
+                    End
+                Loop
+                Get_Attribute DF_FILE_LAST_INDEX_NUMBER of hTable to iMaxIndex
+                Get_Attribute DF_FILE_PRIMARY_INDEX     of hTable to iPrime
+                For iIndex from 1 to iMaxIndex
+                    Get_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments 
+                    If (iSegments > 0) Begin
+                        Move iIndex                           to tTable.aIndexes[iIndex].iIndex
+                        Get_Attribute DF_INDEX_TYPE of hTable to tTable.aIndexes[iIndex].iType
+                        Move (iIndex=iPrime)                  to tTable.aIndexes[iIndex].bPrime  
+                        If (sDriver=MSSQLDRV_ID) Begin
+                            Get_Attribute DF_INDEX_SQL_PRIMARY_KEY of hTable iIndex to tTable.aIndexes[iIndex].bSqlPk
+                        End
+                        For iSegment from 1 to iSegments
+                            Get_Attribute DF_INDEX_SEGMENT_FIELD     of hTable iIndex iSegment to iCol
+                            Get_Attribute DF_INDEX_SEGMENT_CASE      of hTable iIndex iSegment to iCase
+                            Get_Attribute DF_INDEX_SEGMENT_DIRECTION of hTable iIndex iSegment to iDirection
+                            Get_Attribute DF_FIELD_NAME              of hTable iCol to sCol
+                            Move iCol                       to tTable.aIndexes[iIndex].aSegments[iSegment].iCol
+                            Move sCol                       to tTable.aIndexes[iIndex].aSegments[iSegment].sName
+                            Move (iCase=DF_CASE_IGNORED)    to tTable.aIndexes[iIndex].aSegments[iSegment].bIgnoreCase
+                            Move (iDirection=DF_DESCENDING) to tTable.aIndexes[iIndex].aSegments[iSegment].bDescending
+                        Loop
+                    End
+                Loop
+                // write out to file
+                Direct_Output channel iCh (sPath+tTable.sName+'.pkg')
+                Writeln channel iCh "Use cTableDef.pkg"
+                Writeln channel iCh "Use cColumnDef.pkg"
+                Writeln channel iCh "Use cIndexDef.pkg"
+                Writeln channel iCh ""
+                Writeln channel iCh (SFormat("Object o%1 is a cTableDef",tTable.sName))
+                Writeln channel iCh (SFormat('    Set psTableName to "%1"',tTable.sName))
+                Writeln channel iCh (SFormat('    Set psDescription to "%1"',sDescription))
+                Writeln channel iCh (SFormat('    Set peDriver to e%1',sDriver))
+                Writeln channel iCh (SFormat('    Set piFileNo to %1',hTable))
+                If (bSystem) Begin
+                    Writeln channel iCh      '    Set pbSystemTable to True'     
+                End
+                If (bRecnum) Begin
+                    Writeln channel iCh      '    Set pbRecnumTable to True'     
+                End
+                If (sDriver=MSSQLDRV_ID) Begin
+                    If (Uppercase(sOwner)<>"DBO") Begin
+                        Writeln channel iCh (SFormat('    Set psOwner to "%1"',sOwner))
+                    End
+                    If (not(bJIT)) Begin
+                        Writeln channel iCh  '    Set pbJITBinding to False'      
+                    End
+                    If (sCharFormat="OEM") Begin
+                        Writeln channel iCh      '    Set peTableCharacterFormat to eOEM'     
+                    End
+                End
+                Else Begin
+                    If (iCompression=DF_FILE_COMPRESS_NONE) Begin
+                        Writeln channel iCh  '    Set pbFileCompression to False'            
+                    End
+                End
+                If (Uppercase(Trim(sDriver-':'-tTable.sName))<>Uppercase(Trim(sRoot))) Begin
+                    Writeln channel iCh (SFormat('    Set psRootName to "%1"',sRoot))    
+                End
+                For iCol from 1 to iCols
+                    Writeln channel iCh ""
+                    Writeln channel iCh (SFormat('    Object o%1 is a cColumnDef',tTable.aColumns[iCol].sCol))     
+                    Writeln channel iCh (SFormat('        Set psName to "%1"',tTable.aColumns[iCol].sCol)) 
+                    If (tTable.aColumns[iCol].iDfType<>DF_DATE) Begin                        
+                        Writeln channel iCh (SFormat('        Set piLength to %1',tTable.aColumns[iCol].iLength))
+                        If (tTable.aColumns[iCol].iPrecision>0) Begin
+                            Writeln channel iCh (SFormat('        Set piPrecision to %1',tTable.aColumns[iCol].iPrecision))       
+                        End
+                    End    
+                    If (sDriver=MSSQLDRV_ID) Begin
+                        Get_Attribute DF_FIELD_IS_IDENTITY of hTable iCol to bIdentity 
+                        If (bIdentity) Begin
+                            Writeln channel iCh      '        Set pbIdentityColumn to True'       
+                        End
+                        
+                        Case Begin
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_CHAR)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_CHAR'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_VARCHAR)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_VARCHAR'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_WCHAR)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_WCHAR'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_WVARCHAR)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_WVARCHAR'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_WVARCHARMAX)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_WVARCHARMAX'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_INTEGER)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_INTEGER'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_SMALLINT)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_SMALLINT'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_TINYINT)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_TINYINT'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_NUMERIC)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_NUMERIC'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_TYPE_TIMESTAMP)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_TYPE_TIMESTAMP'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_DATETIME)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_DATETIME'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iNativeType=SQL_TYPE_DATE)
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_TYPE_DATE'   
+                                Case Break    
+                            Case Else
+                                Writeln channel iCh      '        Set peNativeDataType to SQL_CHAR'    
+                        Case End    
+                    End
+                    Else Begin
+                        Case Begin
+                            Case (tTable.aColumns[iCol].iDfType=DF_BCD)
+                                Writeln channel iCh      '        Set peDfDataType to DF_BCD'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iDfType=DF_DATE)
+                                Writeln channel iCh      '        Set peDfDataType to DF_DATE'   
+                                Case Break
+                            Case (tTable.aColumns[iCol].iDfType=DF_TEXT)
+                                Writeln channel iCh      '        Set peDfDataType to DF_TEXT'   
+                                Case Break    
+                            Case Else
+                                Writeln channel iCh      '        Set peDfDataType to DF_ASCII' 
+                        Case End
+                    End
+                    If (tTable.aColumns[iCol].iRelatedTable>0) Begin
+                        Writeln channel iCh (SFormat('        Set piRelatedTable to %1 // Consider replacing with RefTable(TableName)',tTable.aColumns[iCol].iRelatedTable)) 
+                        Writeln channel iCh (SFormat('        Set piRelatedColumn to %1 // Consider replacing with RefTable(TableName.ColumnName)',tTable.aColumns[iCol].iRelatedCol))     
+                    End
+                    Get_Attribute DF_FIELD_INDEX of hTable iCol to iIndex 
+                    If (iIndex>0) Begin
+                        Writeln channel iCh (SFormat('        Set piFieldIndex to %1',iIndex))     
+                    End
+                    Writeln channel iCh "    End_Object" 
+                Loop
+                For iIndex from 1 to (SizeOfArray(tTable.aIndexes)-1)
+                    Writeln channel iCh ""
+                    Writeln channel iCh (SFormat('    Object oIndex%1 is a cTableIndex',tTable.aIndexes[iIndex].iIndex)) 
+                    If (tTable.aIndexes[iIndex].bPrime) Begin
+                        Writeln channel iCh      '        Set pbPrimaryIndex to True'     
+                    End
+                    If (tTable.aIndexes[iIndex].bSqlPk) Begin
+                        Writeln channel iCh      '        Set pbSqlPrimaryKey to True'     
+                    End
+                    For iSegment from 1 to (SizeOfArray(tTable.aIndexes[iIndex].aSegments)-1)
+                        Writeln channel iCh ""
+                        Writeln channel iCh (SFormat('        Object o%1 is a cIndexSegment',tTable.aIndexes[iIndex].aSegments[iSegment].sName))     
+                        Writeln channel iCh (SFormat('            Set psColumn to "%1"',tTable.aIndexes[iIndex].aSegments[iSegment].sName))   
+                        If (tTable.aIndexes[iIndex].aSegments[iSegment].bDescending) Begin
+                            Writeln channel iCh      '            Set pbDescending to True'     
+                        End
+                        If (tTable.aIndexes[iIndex].aSegments[iSegment].bIgnoreCase) Begin
+                            Writeln channel iCh      '            Set pbIgnoreCase to True'     
+                        End
+                        Writeln channel iCh "        End_Object" 
+                    Loop
+                    Writeln channel iCh "    End_Object" 
+                Loop
+                Writeln channel iCh "End_Object" 
+                Close_Output channel iCh
+                Send Log_Status (SFormat("    Use Tables\%1.pkg",tTable.sName))
+            End
+        Until (hTable=0)
+        Send Seq_Release_Channel iCh
+    End_Procedure
+End_Object
+Send DoProcess of oSourceCodeGenerator

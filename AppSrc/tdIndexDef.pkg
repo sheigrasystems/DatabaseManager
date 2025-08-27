@@ -1,0 +1,18 @@
+﻿{ Visibility = Private }
+Struct tdIndexSeg
+    String  sName
+    Integer iCol
+    Boolean bIgnoreCase
+    Boolean bDescending
+End_Struct
+
+{ Visibility = Private }
+Struct tdIndexDef
+    Integer iIndex
+    Integer iAssigned
+    Boolean bPrime
+    Boolean bSqlPk
+    Integer iType
+    tdIndexSeg[] aSegments
+    Integer iflgAction
+End_Struct

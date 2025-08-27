@@ -1,0 +1,105 @@
+﻿Use DfAllEnt.pkg
+
+Class cIndexSegment is a cObject
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        { Category = "Index" }
+        Property Boolean pbIgnoreCase       False
+        { Category = "Index" }
+        Property Boolean pbDescending       False
+        { Category = "Index" }
+        Property String  psColumn           // Set this to a column name, OR leave blank IF (and ONLY if) the Segment Name is the same as the column name.
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        Delegate Send RegisterIndexSegment Self
+        Forward Send End_Construct_Object    
+    End_Procedure
+End_Class
+
+Class cTableIndex is a cObject
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        { Category = "Index" }
+        Property Integer piIndex            AUTOASSIGN
+        { Category = "Index" }
+        Property Boolean pbPrimaryIndex     False
+        { Category = "Index" }
+        Property Boolean pbSqlPrimaryKey    False 
+        { Category = "Index" }
+        { EnumList = "DF_INDEX_TYPE_ONLINE,DF_INDEX_TYPE_BATCH" InitialValue = DF_INDEX_TYPE_ONLINE}
+        Property Integer piIndexType        DF_INDEX_TYPE_ONLINE
+        { Visibility = Private }
+        Property Integer piAssignedIndex    0
+        { Visibility = Private }
+        Property Handle[] paIndexSegments
+        
+        Delegate Send RegisterIndexObject Self
+    End_Procedure
+    
+    { Visibility = Private }
+    Procedure RegisterIndexSegment Handle hoSegment
+        Handle[] aSegments aColumns
+        String   sColumn
+        Integer  iPos i
+        
+        Get paIndexSegments to aSegments
+        Move hoSegment to aSegments[-1]
+        Set paIndexSegments to aSegments
+        Get psColumn of hoSegment to sColumn
+        If (sColumn="") Begin
+            Get Name of hoSegment to sColumn
+            Move (RightPos('.',sColumn)) to iPos
+            Move (Right(sColumn,Length(sColumn)-iPos)) to sColumn   
+            Set psColumn of hoSegment to sColumn
+        End
+    End_Procedure
+         
+    Function IsSameIndexDefinition tdIndexDef tIndex Returns Boolean
+        Boolean bIsSame bPrime bSqlPrimaryKey
+        Integer iIndex iType i iCol
+        String  sColumn
+        String[] aColumns
+        Handle[] aSegments
+        
+        Move True to bIsSame
+        Get paIndexSegments to aSegments
+        Move (RemoveFromArray(tIndex.aSegments,0)) to tIndex.aSegments
+        If (SizeOfArray(tIndex.aSegments)<>SizeOfArray(aSegments)) Begin
+            Move False to bIsSame        
+        End
+        Else Begin
+            Delegate Get ColumnNames to aColumns
+            Get piIndex to iIndex
+            Get pbPrimaryIndex to bPrime
+            Get pbSqlPrimaryKey to bSqlPrimaryKey
+            Get piIndexType to iType
+            Case Begin
+                Case (iIndex<>tIndex.iIndex)
+                Case (iType<>tIndex.iType)
+                Case (bPrime<>tIndex.bPrime)
+                Case (bSqlPrimaryKey<>tIndex.bSqlPk)
+                    Move False to bIsSame
+                    Case Break
+                Case Else
+                    For i from 0 to (SizeOfArray(aSegments)-1)
+                        Get psColumn of aSegments[i] to sColumn
+                        Move (SearchArray(sColumn,aColumns,Desktop,RefFunc(DFSTRICMP))) to iCol    
+                        If (iCol>-1) Begin
+                            Increment iCol
+                            Case Begin
+                                Case (tIndex.aSegments[i].iCol<>iCol)
+                                Case (tIndex.aSegments[i].bDescending <> pbDescending(aSegments[i]))
+                                Case (tIndex.aSegments[i].bIgnoreCase <> pbIgnoreCase(aSegments[i]))
+                                    Move False to bIsSame
+                                    Case Break    
+                            Case End
+                        End
+                    Loop        
+            Case End
+        End
+        Function_Return bIsSame
+    End_Function
+End_Class

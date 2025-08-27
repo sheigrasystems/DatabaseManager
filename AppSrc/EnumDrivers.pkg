@@ -1,0 +1,7 @@
+﻿Enum_List
+    Define eDEFAULT
+    Define eDATAFLEX    
+    Define eMSSQLDRV
+    Define eODBC_DRV
+    Define eDB2_DRV
+End_Enum_List

@@ -1,0 +1,26 @@
+﻿Use DfAllEnt.pkg
+Use cdmApplication.pkg
+Use cdmConnection.pkg
+Use cDatabaseManager.pkg
+
+Object oApplication is a cdmApplication
+
+    Object oConnection is a cdmConnection
+        Use LoginEncryption.pkg
+        Use DatabaseLoginDialog.dg
+    End_Object
+End_Object
+
+Object oDatabaseManager is a cDatabaseManager
+    use TableHistory.pkg
+
+    Use OrderEntry\OrderSystem.pkg
+    Use OrderEntry\Customers.pkg
+    Use OrderEntry\Vendor.pkg
+    Use OrderEntry\SalesPerson.pkg
+    Use OrderEntry\Inventory.pkg
+    Use OrderEntry\OrderHeader.pkg
+    Use OrderEntry\OrderDetail.pkg
+End_Object
+
+Start_UI

@@ -1,0 +1,194 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Declare_Datafile TableHistory
+
+Object TableHistory is a cTableDef
+    Set psDescription to "Table History"
+    Set peDriver to eDEFAULT
+    Set phoTableHistory to Self 
+    Set piFileNo to 1
+
+    Object oId is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set pbIdentityColumn to True
+        Set piLength to 10
+        Set psName to "Id"
+        Set piFieldIndex to 1 
+    End_Object
+    
+    Object oDate is a cColumnDef
+        Set peNativeDataType to SQL_TYPE_DATE
+        Set psName to "Date"
+        Set piFieldIndex to 2
+    End_Object  
+   
+    Object oTime is a cColumnDef
+        Set piLength to 8 
+        Set psName to "Time"
+        Set piFieldIndex to 2
+    End_Object
+    
+    Object oTable is a cColumnDef
+        Set piLength to 32
+        Set psName to "Table"
+        Set peNativeDataType to SQL_VARCHAR
+    End_Object
+    
+    Object oColumn is a cColumnDef
+        Set piLength to 32
+        Set psName to "Column"
+        Set peNativeDataType to SQL_VARCHAR
+    End_Object
+    
+    Object oChangeType is a cColumnDef
+        Set peNativeDataType to SQL_VARCHAR
+        Set piLength to 50
+        Set psName to "Changed"
+    End_Object
+    
+    Object oVersionMajor is a cColumnDef
+        Set peNativeDataType to SQL_SMALLINT
+        Set piLength to 4
+        Set psName to "VersionMajor"
+    End_Object
+
+    Object oVersionMinor is a cColumnDef
+        Set peNativeDataType to SQL_SMALLINT
+        Set piLength to 4
+        Set psName to "VersionMinor"
+    End_Object
+    
+    Object oVersionPatch is a cColumnDef
+        Set peNativeDataType to SQL_SMALLINT
+        Set piLength to 4
+        Set psName to "VersionPatch"
+    End_Object
+    
+    Object oVersionBuild is a cColumnDef
+        Set peNativeDataType to SQL_SMALLINT
+        Set piLength to 4
+        Set psName to "VersionBuild"
+    End_Object
+
+    Object Index1 is a cTableIndex
+        Set pbSqlPrimaryKey to True
+        Set pbPrimaryIndex  to True
+        
+        Object oId is a cIndexSegment
+            Set psColumn to "Id"
+        End_Object
+    End_Object
+    
+    Object Index2 is a cTableIndex
+        
+        Object oDate is a cIndexSegment
+            Set psColumn to "Date"
+        End_Object
+        
+        Object oTime is a cIndexSegment
+            Set psColumn to "Time"
+        End_Object
+        
+        Object oTable is a cIndexSegment
+            Set psColumn to "Table"
+        End_Object
+        
+        Object oColumn is a cIndexSegment
+            Set psColumn to "Column"
+        End_Object
+    End_Object
+
+    Object Index3 is a cTableIndex
+        
+        Object oVersionMajor is a cIndexSegment
+            Set psColumn to "VersionMajor"
+        End_Object
+        
+        Object oVersionMinor is a cIndexSegment
+            Set psColumn to "VersionMinor"
+        End_Object
+        
+        Object oVersionPatch is a cIndexSegment
+            Set psColumn to "VersionPatch"
+        End_Object
+        
+        Object oVersionBuild is a cIndexSegment
+            Set psColumn to "VersionBuild"
+        End_Object
+        
+        Object oTable is a cIndexSegment
+            Set psColumn to "Table"
+        End_Object
+        
+        Object oColumn is a cIndexSegment
+            Set psColumn to "Column"
+        End_Object   
+        
+        Object oId is a cIndexSegment
+            Set psColumn to "Id"
+        End_Object       
+    End_Object
+    
+    Procedure OnLogDatabaseChange String sTable String sColumn Integer eActionFlag
+        Handle  hoDatabaseTablesManager hoVersionInfo
+        Boolean bIncluded
+        Date    dDate
+        String  sTime sChanged
+        String[] aChanged
+        
+        If (IsFlagIn(afCreate,eActionFlag)) Begin
+            Move 'Created' to aChanged[-1]
+        End
+        Else If (IsFlagIn(afDelete,eActionFlag)) Begin
+            Move 'Deleted' to aChanged[-1]
+        End
+        Else Begin            
+            If (IsFlagIn(afMove,eActionFlag)) Begin
+                Move 'Moved' to aChanged[-1]
+            End
+            If (IsFlagIn(afResize,eActionFlag)) Begin
+                Move 'Resized' to aChanged[-1]
+            End
+            If (IsFlagIn(afRename,eActionFlag)) Begin
+                Move 'Renamed' to aChanged[-1]
+            End
+            If (IsFlagIn(afChangeRelate,eActionFlag)) Begin
+                Move 'Changed Relationship' to aChanged[-1]
+            End
+            If (IsFlagIn(afChangeType,eActionFlag)) Begin
+                Move 'Changed Type' to aChanged[-1]
+            End
+            If (IsFlagIn(afChangeNativeType,eActionFlag)) Begin
+                Move 'Changed Native Type' to aChanged[-1]
+            End
+        End
+        If (SizeOfArray(aChanged)=0) Begin
+            Move 'Unknown' to aChanged[0]
+        End
+        Move (StrJoinFromArray(aChanged,',')) to sChanged
+        
+        Get phoDatabaseTablesManager to hoDatabaseTablesManager
+        Send DateAndTime of hoDatabaseTablesManager (&dDate) (&sTime)
+        Get phoVersionInfo of ghoApplication to hoVersionInfo
+        If (hoVersionInfo <> 0) Begin
+            Get pbIncluded of hoVersionInfo to bIncluded
+        End
+        Lock
+            Clear TableHistory
+            Move dDate    to TableHistory.Date
+            Move sTime    to TableHistory.Time
+            Move sTable   to TableHistory.Table
+            Move sColumn  to TableHistory.Column
+            Move sChanged to TableHistory.Changed
+            If (bIncluded) Begin
+                Get piVersionMajor   of hoVersionInfo to TableHistory.VersionMajor
+                Get piVersionMinor   of hoVersionInfo to TableHistory.VersionMinor
+                Get piVersionRelease of hoVersionInfo to TableHistory.VersionPatch
+                Get piVersionBuild   of hoVersionInfo to TableHistory.VersionBuild
+            End            
+            SaveRecord TableHistory
+        Unlock
+    End_Procedure
+End_Object

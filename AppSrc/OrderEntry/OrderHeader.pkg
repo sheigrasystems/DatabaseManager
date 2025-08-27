@@ -1,0 +1,98 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Declare_Datafile Customer
+Declare_Datafile SalesPerson
+
+Object OrderHeader is a cTableDef
+    Set psDescription to "Order Header"
+    Set peDriver to eMSSQLDRV
+    Set piFileNo to 30
+    
+    Object Order_Number is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set piLength to 6
+        Set pbIdentityColumn to True 
+    End_Object
+    
+    Object Customer_Number is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set piLength to 6
+        Set piRelatedTable to (RefTable(Customer))
+        Set piRelatedColumn to (RefTable(Customer.Customer_Number))
+    End_Object
+    
+    Object Order_Date is a cColumnDef
+        Set peNativeDataType to SQL_TYPE_DATE
+    End_Object
+    
+    Object Terms is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 12
+    End_Object
+    
+    Object Ship_Via is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 12
+    End_Object
+    
+    Object Ordered_By is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 12
+    End_Object
+    
+    Object SalesPerson_Id is a cColumnDef
+        Set peNativeDataType to SQL_CHAR
+        Set piLength to 4
+        Set piRelatedTable to (RefTable(SalesPerson))
+        Set piRelatedColumn to (RefTable(SalesPerson.ID))
+    End_Object 
+    
+    Object Order_Total is a cColumnDef
+        Set peNativeDataType to SQL_NUMERIC
+        Set piLength to 10
+        Set piPrecision to 2  
+    End_Object 
+    
+    Object Last_Detail_Num is a cColumnDef
+        Set peNativeDataType to SQL_SMALLINT
+        Set piLength to 4
+    End_Object
+
+    // Indexes
+    Object Index1 is a cTableIndex
+        Set pbPrimaryIndex  to True
+        Set pbSqlPrimaryKey to True
+        
+        Object Order_Number is a cIndexSegment 
+        End_Object
+    End_Object 
+    
+    Object Index2 is a cTableIndex
+
+        Object Customer_Number is a cIndexSegment 
+        End_Object
+        
+        Object Order_Number is a cIndexSegment 
+        End_Object
+    End_Object 
+    
+    Object Index3 is a cTableIndex
+
+        Object Order_Date is a cIndexSegment 
+        End_Object
+        
+        Object Order_Number is a cIndexSegment 
+        End_Object
+    End_Object 
+    
+    Object Index4 is a cTableIndex
+
+        Object SalesPerson_Id is a cIndexSegment 
+        End_Object
+        
+        Object Order_Number is a cIndexSegment 
+        End_Object
+    End_Object 
+End_Object

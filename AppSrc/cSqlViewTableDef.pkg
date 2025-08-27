@@ -1,0 +1,159 @@
+﻿Use cTableDef.pkg
+Use seq_chnl.pkg
+
+Class cSqlViewTableDef is a cTableDef
+    
+    Procedure RegisterColumnObject Handle hoColumn
+        Error DFERR_OPERATION_NOT_ALLOWED "You cannot add column objects to a SQL view"
+    End_Procedure
+
+    Procedure OnInit
+        tdDbTable tTable  
+        Boolean bExists
+        Handle  hoDatabaseTablesManager hTable
+        String  sName
+        
+        Delegate Get phoDatabaseTablesManager to hoDatabaseTablesManager
+        Get psTableName to sName
+        Get DoesTableExist of hoDatabaseTablesManager sName (&hTable) to bExists
+        If (bExists) Begin
+            Set piFileNo to hTable
+        End
+        Set pbCreateTable to (not(bExists))
+    End_Procedure
+    
+    Function IsUpdateRequired Returns Boolean
+        Function_Return True
+    End_Function
+
+    Procedure DeleteIndexes 
+        Handle  hTable
+        Integer iMaxIndex iIndex iSegments iFile 
+
+        Get phTempTable to hTable
+        Get_Attribute DF_FILE_LAST_INDEX_NUMBER of hTable to iMaxIndex
+        For iIndex from 1 to iMaxIndex
+            Get_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments
+            If (iSegments>0) Begin
+                Delete_Index hTable iIndex
+            End
+        Loop
+    End_Procedure
+
+    { Visibility = Private }
+    Procedure CreateIndex Handle hoIndex
+        String  sName
+        Integer iIndex
+        Handle  hTable
+        
+        Forward Send CreateIndex hoIndex
+        Get psTableName to sName
+        Move (Uppercase(sName)) to sName
+        Get phTempTable to hTable
+        Get piIndex of hoIndex to iIndex
+        If (iIndex=0) Begin
+            Get piAssignedIndex of hoIndex to iIndex 
+        End
+        Set_Attribute DF_INDEX_NAME of hTable iIndex to (sName-Right("000"+String(iIndex),3))
+    End_Procedure 
+    
+    Procedure DoUpdate
+        String  sName sSql sOwner sConn sPath sDriver sDescription sRoot
+        Boolean bExists bRecnum bJITBinding bCreateTable bError
+        Integer iCh eCharacterFormat i
+        Handle  hTable
+        Handle[] aIndexes
+        
+        Get psDriver    to sDriver
+        If (sDriver="DATAFLEX") Begin
+            Procedure_Return
+        End
+        Get paIndexObjects  to aIndexes
+        Get pbCreateTable          to bCreateTable
+        Get psTableName            to sName
+        Get psOwner                to sOwner
+        Get peTableCharacterFormat to eCharacterFormat
+        Get pbRecnumTable          to bRecnum
+        Get Connection             to sConn
+        Get pbJITBinding           to bJITBinding
+        Get psDescription          to sDescription
+        Get TableRootName          to sRoot
+           
+        Get ViewExists of ghoConnection sName to bExists
+        If (bExists) Begin
+            Send DropView of ghoConnection sName     
+        End
+        Send OnCreate (&sSql)
+        If (sSql>"") Begin
+            Send SQLExecDirect of ghoSQLExecutor (SFormat(@SQL"""
+            CREATE VIEW "%1"."%2" AS %3
+            """,sOwner,sName,sSql))
+            // now create an INT file
+            Move (Seq_New_Channel()) to iCh
+            Get psDataPath of (phoWorkspace(ghoApplication)) to sPath
+            If (Right(sPath,1)<>SysConf(SYSCONF_DIR_SEPARATOR)) Begin
+                Move (sPath+SysConf(SYSCONF_DIR_SEPARATOR)) to sPath
+            End
+            Direct_Output channel iCh (sPath-sName-".int")
+            Writeln channel iCh (SFormat("DRIVER_NAME %1",sDriver))
+            Writeln channel iCh (SFormat("SERVER_NAME %1",sConn))
+            Writeln channel iCh (SFormat("DATABASE_NAME %1",sName))
+            Writeln channel iCh (SFormat("SCHEMA_NAME %1",sOwner))
+            Writeln channel iCh ""
+            Writeln channel iCh (SFormat("RECNUM_TABLE %1",If(bRecnum,"YES","NO")))
+            Writeln channel iCh (SFormat("TABLE_CHARACTER_FORMAT %1",If(eCharacterFormat=eANSI,"ANSI","OEM")))
+            Writeln channel iCh "USE_DUMMY_ZERO_DATE YES"
+            
+            Close_Output channel iCh
+            Send Seq_Release_Channel iCh
+            
+            If (bCreateTable) Begin
+                Set DetailStatus to "Creating"
+                Move 0 to hTable
+                
+                Structure_Start hTable sDriver
+                Set phTempTable to hTable
+                Set_Attribute DF_FILE_IS_SYSTEM_FILE         of hTable to False
+                Set_Attribute DF_FILE_PHYSICAL_NAME          of hTable to (SFormat("%1.int",sName))
+                Set_Attribute DF_FILE_RECNUM_TABLE           of hTable to bRecnum
+                Set_Attribute DF_FILE_LOGIN                  of hTable to sConn
+                Set_Attribute DF_FILE_OWNER                  of hTable to sOwner
+                Set_Attribute DF_FILE_TABLE_CHARACTER_FORMAT of hTable to (If(eCharacterFormat=eANSI,"ANSI","OEM"))
+                Set_Attribute DF_FILE_JIT_BINDING            of hTable to bJITBinding
+            End
+            Else Begin
+                Get piFileNo to hTable
+                Structure_Start hTable sDriver
+                Set phTempTable to hTable  
+                Send DeleteIndexes
+            End             
+            Send TrapErrors
+            Structure_End hTable DF_STRUCTEND_OPT_NONE
+            Send UnTrapErrors
+
+            If (bCreateTable) Begin
+                If (piFileNo(Self)=0) Begin
+                    Get_Attribute DF_FILE_NEXT_EMPTY to hTable
+                    Set piFileNo to hTable
+                End
+                Get piFileNo to hTable
+                Set_Attribute DF_FILE_LOGICAL_NAME of hTable to sName
+                Set_Attribute DF_FILE_DISPLAY_NAME of hTable to sDescription
+                Set_Attribute DF_FILE_ROOT_NAME    of hTable to sRoot
+            End 
+            
+            Get piFileNo to hTable
+            Get OpenTable hTable True to bError
+            Structure_Start hTable sDriver
+            Set phTempTable to hTable  
+            For i from 0 to (SizeOfArray(aIndexes)-1)
+                Send CreateIndex aIndexes[i]      
+            Loop
+            Structure_End hTable DF_STRUCTEND_OPT_NONE
+        End
+    End_Procedure
+    
+    { MethodType = Event }
+    Procedure OnCreate String ByRef sSql
+    End_Procedure
+End_Class

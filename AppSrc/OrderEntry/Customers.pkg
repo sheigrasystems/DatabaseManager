@@ -1,0 +1,112 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Object Customers is a cTableDef
+    Set psDescription to "Customers"
+    Set peDriver to eMSSQLDRV
+    Set piFileNo to 25
+
+    Object Customer_Number is a cColumnDef
+        Set peNativeDataType to SQL_INTEGER
+        Set piLength to 6
+        Set pbIdentityColumn to True 
+    End_Object
+
+    Object CustomerName is a cColumnDef
+        Set psName to "Name"
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 30
+    End_Object
+
+    Object Address is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 30
+    End_Object
+
+    Object City is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 14
+    End_Object
+
+    Object State is a cColumnDef
+        Set peNativeDataType to SQL_CHAR
+        Set piLength to 2
+    End_Object
+
+    Object Zip is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 10
+    End_Object
+
+    Object Phone is a cColumnDef
+        Set peNativeDataType to SQL_VARCHAR
+        Set piLength to 20
+    End_Object
+
+    Object Fax is a cColumnDef
+        Set peNativeDataType to SQL_VARCHAR
+        Set piLength to 20
+    End_Object
+
+    Object Email is a cColumnDef
+        Set peNativeDataType to SQL_VARCHAR
+        Set piLength to 30
+    End_Object
+
+    Object CreditLimit is a cColumnDef
+        Set peNativeDataType to SQL_NUMERIC
+        Set piLength to 8
+        Set piPrecision to 2   
+    End_Object
+
+    Object Purchases is a cColumnDef
+        Set peNativeDataType to SQL_NUMERIC
+        Set piLength to 8
+        Set piPrecision to 2  
+    End_Object
+
+    Object Balance is a cColumnDef
+        Set peNativeDataType to SQL_NUMERIC
+        Set piLength to 8
+        Set piPrecision to 2  
+    End_Object
+
+    Object Comments is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHARMAX
+        Set piLength to 1024
+    End_Object
+
+    Object Status is a cColumnDef
+        Set peNativeDataType to SQL_CHAR
+        Set piLength to 1
+    End_Object
+
+    // Indexes
+    Object Index1 is a cTableIndex
+        Set pbPrimaryIndex  to True
+        Set pbSqlPrimaryKey to True
+        
+        Object Customer_Number is a cIndexSegment 
+        End_Object
+    End_Object
+    
+    Object Index2 is a cTableIndex
+
+        Object CustomerName is a cIndexSegment
+            Set psColumn to "Name"
+        End_Object
+        
+        Object Customer_Number is a cIndexSegment 
+        End_Object
+    End_Object    
+    
+    Object Index3 is a cTableIndex
+
+        Object Balance is a cIndexSegment 
+        End_Object
+        
+        Object Customer_Number is a cIndexSegment 
+        End_Object
+    End_Object     
+End_Object

@@ -1,0 +1,44 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Object SalesPerson is a cTableDef
+    Set psDescription to "Sales People"
+    Set peDriver to eMSSQLDRV
+    Set piFileNo to 27
+    
+    Object Id is a cColumnDef
+        Set peNativeDataType to SQL_CHAR
+        Set piLength to 4
+    End_Object
+
+    Object SalesPersonName is a cColumnDef
+        Set psName to "Name"
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 25
+    End_Object
+
+    Object Avatar is a cColumnDef
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 20
+    End_Object
+    
+    // Indexes
+    Object Index1 is a cTableIndex
+        Set pbPrimaryIndex  to True
+        Set pbSqlPrimaryKey to True
+        
+        Object Id is a cIndexSegment 
+        End_Object
+    End_Object
+    
+    Object Index2 is a cTableIndex
+
+        Object VendorName is a cIndexSegment
+            Set psName to "Name"
+        End_Object
+        
+        Object Id is a cIndexSegment 
+        End_Object
+    End_Object   
+End_Object

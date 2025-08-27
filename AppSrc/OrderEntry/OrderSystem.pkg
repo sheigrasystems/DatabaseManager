@@ -1,0 +1,26 @@
+﻿Use cTableDef.pkg
+Use cColumnDef.pkg
+Use cIndexDef.pkg
+
+Declare_Datafile OrderSystem
+
+Object OrderSystem is a cTableDef
+    Set psDescription to "Order System File"
+    Set peDriver to eMSSQLDRV
+    Set pbSystemTable to True
+    Set piFileNo to 20
+        
+    Object oEncryptPassword is a cColumnDef
+        Set psName to "EncryptPassword"
+        Set peNativeDataType to SQL_WVARCHAR
+        Set piLength to 40
+    End_Object
+    
+    Procedure OnCreate
+        Lock
+            Clear OrderSystem
+            Move 'ah(f5Ia~Y51o.2pH~([iz#Q~g3dhRoKwUP6=tjRO' to OrderSystem.EncryptPassword
+            SaveRecord OrderSystem
+        Unlock   
+    End_Procedure
+End_Object

@@ -1,0 +1,499 @@
+﻿Use Windows.pkg
+Use Dfline.pkg
+Use MSSqldrv.pkg
+Use cdmButton.pkg
+Use cdmConnection.pkg
+
+Object odbConfig is a ModalPanel
+    Set Size to 295 266
+    Set Label to "Database Configuration"
+    Set Border_Style to Border_Thick
+    
+    Procedure LoadDriver String sDriver Boolean ByRef bFound
+        Integer iDriver iDriverCount
+        String  sName
+        
+        Get_Attribute DF_NUMBER_DRIVERS to iDriverCount
+        For iDriver from 1 to iDriverCount
+            Get_Attribute DF_DRIVER_NAME of iDriver to sName
+            If (sName=sDriver) Begin
+                Move True to bFound
+            End
+        Loop
+        If (not(bFound)) Begin
+            Load_Driver sDriver
+        End
+    End_Procedure
+
+    Object oBanner is a Container3d
+        Set Size to 19 266
+        Set Location to 0 0
+        Set Border_Style to Border_None
+        Set Color to clWhite
+        Set peAnchors to anTopLeftRight
+
+        Object oHelpText is a TextBox
+            Set Size to 16 250
+            Set Location to 5 3
+            Set Auto_Size_State to False
+            Set Justification_Mode to JMode_Left
+            Set Label to 'Database Setup.'
+            Set Transparent_State to True
+        End_Object
+    End_Object
+
+    Object oLineControlTop is a LineControl
+        Set Size to 2 263
+        Set Location to 19 2
+        Set peAnchors to anTopLeftRight
+    End_Object
+
+    Object oConnection is a Group
+        Set Location to 22 3
+        Set Size to 29 260
+        Set Label to 'Connection'
+        Set peAnchors to anTopLeftRight
+
+        Object oDatabaseType is a ComboForm
+            Set Location to 11 45
+            Set Size to 12 74
+            Set Label to "Type:"
+            Set Label_Col_Offset to 36
+        
+            Procedure Combo_Fill_List
+                Send Combo_Add_Item "DATAFLEX"
+                Send Combo_Add_Item "MSSQLDRV"
+            End_Procedure
+
+            Procedure Combo_Item_Changed
+                String sDriver
+                Get Value to sDriver
+                Broadcast Recursive Send OnDriverSelected of odbConfig sDriver
+            End_Procedure
+
+            Procedure Activating
+                Forward Send Activating
+                Set Value to "MSSQLDRV"
+            End_Procedure
+        End_Object
+
+        Object oConnectionId is a Form
+            Set Location to 11 169
+            Set Size to 12 85
+            Set Label to "Conn ID:"
+            Set Label_Col_Offset to 36
+            
+            Procedure OnDriverSelected String sDriver
+                Set Enabled_State to (sDriver<>"DATAFLEX")
+            End_Procedure
+        End_Object
+    End_Object
+
+    Object oSetupLogin is a Group
+        Set Size to 87 260
+        Set Location to 53 3
+        Set Label to "Database Setup Process"
+        Set peAnchors to anTopLeftRight
+
+        Object oHelpText is a TextBox
+            Set Auto_Size_State to False
+            Set Size to 26 250
+            Set Location to 12 6
+            Set Label to 'This process will create your database and setup your user account. To do so may require elevated permissions. Please specify how you wish to connect to the SQL server for this purpose (only).'
+            Set Justification_Mode to JMode_Left
+        End_Object
+
+        Object oWidowsAuth_This is a Checkbox
+            Set Size to 10 50
+            Set Location to 42 45
+            Set Label to 'Use Windows Authentication'
+            
+            Procedure OnChange
+                Boolean bChecked
+                
+                Get Checked_State to bChecked
+                Set Enabled_State of oSA_Username to (not(bChecked))
+                Set Enabled_State of oSA_Password to (not(bChecked))
+            End_Procedure
+            
+            Procedure Activating
+                Forward Send Activating
+                Set Checked_State to True
+            End_Procedure
+        End_Object
+
+        Object oSA_Username is a Form
+            Set Size to 12 101
+            Set Location to 54 45
+            Set Label to "Username:"
+            Set Label_Justification_Mode to JMode_Left
+            Set Label_Col_Offset to 36
+            Set Enabled_State to False
+            
+            Procedure Set Enabled_State Integer bState
+                Forward Set Enabled_State to bState
+                If (not(bState)) Begin
+                    Set Value to ""
+                End
+            End_Procedure
+        End_Object
+        
+        Object oSA_Password is a Form
+            Set Size to 12 101
+            Set Location to 69 45
+            Set Label to "Password:"
+            Set Label_Justification_Mode to JMode_Left
+            Set Label_Col_Offset to 36
+            Set Password_State to True
+            Set Enabled_State to False
+            
+            Procedure Set Enabled_State Integer bState
+                Forward Set Enabled_State to bState
+                If (not(bState)) Begin
+                    Set Value to ""
+                End
+            End_Procedure
+        End_Object
+        
+        Function AreLoginCredentialsGiven Returns Boolean
+            Boolean bWindowsAuth
+            String  sUser sPwd
+
+            Get Checked_State of oWidowsAuth_This to bWindowsAuth
+            If (bWindowsAuth) Begin
+                Function_Return True
+            End
+            Get Value of oSA_Username to sUser
+            Get Value of oSA_Password to sPwd
+            Move (Trim(sUser)) to sUser
+            Move (Trim(sPwd))  to sPwd
+            Function_Return (sUser<>'' and sPwd<>'')
+        End_Function
+
+        Procedure OnDriverSelected String sDriver
+            Set Enabled_State to (sDriver<>"DATAFLEX")
+        End_Procedure
+    End_Object
+
+    Object oDatabaseDetails is a Group
+        Set Size to 131 260
+        Set Location to 142 3
+        Set Label to "Application Database and User Details"
+        Set peAnchors to anAll
+
+        Object oHelpText is a TextBox
+            Set Auto_Size_State to False
+            Set Size to 18 250
+            Set Location to 12 6
+            Set Label to 'Select the Server on which your database will reside. Name the database and specify how users will connect to this database.'
+            Set Justification_Mode to JMode_Left
+        End_Object
+        
+        Object oServer is a ComboForm
+            Set Size to 12 139
+            Set Location to 44 6
+            Set Label to "Select or enter a Server Name:"
+            Set Label_Col_Offset to 0
+            Set Label_Justification_Mode to JMode_Top
+            Set Entry_State to True
+            Set Label_Row_Offset to 1
+
+            Function Servers Returns String[]
+                Integer iNumServers iServer
+                Handle hoSQLHandler
+                String[] aServers
+        
+                Get CreateNamed (RefClass(cMSSQLhandler)) '_oSQLHandler' to hoSQLHandler
+                If (hoSQLHandler<>0) Begin
+                    Send Cursor_Wait of Cursor_Control
+                    Get EnumerateServers of hoSQLHandler to iNumServers
+                    For iServer from 0 to (iNumServers-1)
+                        Get Value of hoSQLHandler iServer to aServers[iServer]
+                    Loop
+                    Send Cursor_Ready of Cursor_Control
+                    Send Destroy of hoSQLHandler
+                End
+                Function_Return aServers
+            End_Function
+
+            Procedure OnDropDown
+                Integer i iServers
+                String[] aServers
+
+                Set Visible_State of oStatus_Servers to True
+                Get Servers to aServers
+                Send Combo_Delete_Data
+                Move (SizeOfArray(aServers)) to iServers
+                For i from 0 to (iServers-1)
+                    Send Combo_Add_Item aServers[i]
+                Loop
+                Set Visible_State of oStatus_Servers to False
+            End_Procedure
+        End_Object
+
+        Object oStatus_Servers is a TextBox
+            Set Size to 10 32
+            Set Location to 46 149
+            Set Label to 'Searching for published servers...'
+            Set TextColor to clMaroon
+            Set Visible_State to False
+
+            Procedure Set Visible_State Boolean bVisible
+                Forward Set Visible_State to bVisible
+                Send PumpMsgQueue of Desktop
+            End_Procedure
+        End_Object 
+
+        Object oDatabase is a ComboForm
+            Set Size to 12 138
+            Set Location to 68 6
+            Set Label to "Select or enter a Database Name:"
+            Set Label_Col_Offset to 0
+            Set Label_Justification_Mode to JMode_Top
+            Set Entry_State to True
+            Set Label_Row_Offset to 1
+
+            Function Databases Returns String[]
+                String  sServer sUser sPwd
+                Integer iNumDatabases iDatabase
+                Handle  hoSQLHandler
+                String[] aDatabases
+
+                Get Value of oServer 0 to sServer
+                Move (Trim(sServer)) to sServer
+                If (Length(sServer)>0) Begin
+                    Get CreateNamed (RefClass(cMSSQLhandler)) '_oSQLHandler' to hoSQLHandler
+                    If (hoSQLHandler<>0) Begin
+                        Get Value of (oSA_Username(oSetupLogin)) to sUser
+                        Get Value of (oSA_Password(oSetupLogin)) to sPwd
+                        Move (Trim(sUser)) to sUser
+                        Move (Trim(sPwd))  to sPwd
+                        
+                        // use windows auth to get the databases as the specified username/password may not yet exist.
+                        Get EnumerateDatabases of hoSQLHandler sServer sUser sPwd to iNumDatabases
+                        For iDatabase from 0 to (iNumDatabases-1)
+                            Get Value of hoSQLHandler iDatabase to aDatabases[iDatabase]
+                        Loop
+                        Send Destroy of hoSQLHandler
+                    End
+                End
+                Function_Return aDatabases
+            End_Function
+
+            Procedure OnDropDown
+                Integer i iDatabases
+
+                String[] aDatabases
+
+                Set Visible_State of oStatus_Databases to True
+                Get Databases to aDatabases
+                Send Combo_Delete_Data
+                Move (SizeOfArray(aDatabases)) to iDatabases
+                For i from 0 to (iDatabases-1)
+                    Send Combo_Add_Item aDatabases[i]
+                Loop
+                Set Visible_State of oStatus_Databases to False
+            End_Procedure
+        End_Object
+
+        Object oStatus_Databases is a TextBox
+            Set Size to 10 78
+            Set Location to 70 149
+            Set Label to 'Searching for databases...'
+            Set TextColor to clMaroon
+            Set Visible_State to False
+
+            Procedure Set Visible_State Boolean bVisible
+                Forward Set Visible_State to bVisible
+                Send PumpMsgQueue of Desktop
+            End_Procedure
+        End_Object
+        
+        Object oWindowsAuth is a Checkbox
+            Set Size to 10 50
+            Set Location to 84 6
+            Set Label to 'Users will connect using Windows Authentication'
+
+            Procedure OnChange
+                Boolean bChecked
+
+                Get Checked_State to bChecked
+                Set Enabled_State of oUsername to (not(bChecked))
+                Set Enabled_State of oPassword to (not(bChecked))
+            End_Procedure
+        End_Object
+
+        Object oUsername is a Form
+            Set Size to 12 100
+            Set Location to 97 45
+            Set Label to "Username:"
+            Set Label_Justification_Mode to JMode_Left
+            Set Label_Col_Offset to 36
+
+            Procedure Set Enabled_State Integer bState
+                Forward Set Enabled_State to bState
+                If (not(bState)) Begin
+                    Set Value to ""
+                End
+            End_Procedure
+        End_Object
+
+        Object oPassword is a Form
+            Set Size to 12 100
+            Set Location to 112 45
+            Set Label to "Password:"
+            Set Label_Justification_Mode to JMode_Left
+            Set Label_Col_Offset to 36
+            Set Password_State to True
+            
+            Procedure Set Enabled_State Integer bState
+                Forward Set Enabled_State to bState
+                If (not(bState)) Begin
+                    Set Value to ""
+                End
+            End_Procedure
+        End_Object
+
+        Procedure OnDriverSelected String sDriver
+            Set Enabled_State to (sDriver<>"DATAFLEX")
+        End_Procedure               
+    End_Object
+
+    Object oOK_Btn is a cdmButton
+        Set Label    to "&OK"
+        Set Location to 277 156
+        Set peAnchors to anBottomRight
+        Set pbTimerActive to True
+
+        Procedure OnEnabled Boolean ByRef bEnabled
+            String  sServer sDatabase sUid sPwd sDriver sConnId
+            Boolean bWindowsAuth
+
+            Forward Send OnEnabled (&bEnabled)
+            Get Value of oDatabaseType to sDriver
+            If (sDriver="DATAFLEX") Begin
+                Move True to bEnabled
+            End
+            Else Begin                
+                Get Value of oConnectionId to sConnId
+                If (sConnId="") Begin
+                    Move False to bEnabled
+                End
+                Else Begin
+                    Get AreLoginCredentialsGiven of oSetupLogin to bEnabled
+                    If (bEnabled) Begin
+                        Get Value of (oSA_Username(oSetupLogin)) to sUid
+                        Get Value of (oSA_Password(oSetupLogin)) to sPwd
+                        Set psSAUid of ghoConnection to sUid
+                        Set psSAPwd of ghoConnection to sPwd
+                        
+                        Get Value of (oServer(oDatabaseDetails))   to sServer
+                        Get Value of (oDatabase(oDatabaseDetails)) to sDatabase
+                        Move (Trim(sServer))   to sServer
+                        Move (Trim(sDatabase)) to sDatabase
+                        Get Checked_State of (oWindowsAuth(oDatabaseDetails)) to bWindowsAuth
+                        Get Value of (oUsername(oDatabaseDetails)) to sUid
+                        Get Value of (oPassword(oDatabaseDetails)) to sPwd
+                        Move (Trim(sUid)) to sUid
+                        Move (Trim(sPwd)) to sPwd
+                        Move (Length(sServer)>0 and Length(sDatabase)>0) to bEnabled
+                        If (bEnabled and (not(bWindowsAuth))) Begin
+                            Move (Length(sUid)>0 and Length(sPwd)>0) to bEnabled
+                        End
+                    End  
+                End
+            End
+        End_Procedure
+        
+        Procedure OnClick
+            Boolean bOk bWindowsAuth bError bExists
+            String  sDriver sConnId sServer sDatabase sUid sPwd sConnections sError
+            
+            Get Value of oDatabaseType to sDriver
+            Set psDriver of ghoApplication to sDriver
+            If (sDriver<>"DATAFLEX") Begin    
+                Get AreLoginCredentialsGiven of oSetupLogin to bOk
+                If (bOk) Begin
+                    Get Checked_State of (oWindowsAuth(oDatabaseDetails)) to bWindowsAuth
+                    Get Value of (oServer(oDatabaseDetails)) to sServer
+                    Move (Trim(sServer)) to sServer
+                    Set psServer of ghoConnection to sServer
+                    Get Value of (oDatabase(oDatabaseDetails)) to sDatabase
+                    Move (Trim(sDatabase)) to sDatabase
+                    Set psDatabase of ghoConnection to sDatabase
+                    Get Value of (oUsername(oDatabaseDetails)) to sUid
+                    Move (Trim(sUid)) to sUid
+                    Set psUid of ghoConnection to sUid
+                    Get Value of (oPassword(oDatabaseDetails)) to sPwd
+                    Move (Trim(sPwd)) to sPwd                
+                    Set psPwd of ghoConnection to sPwd
+                    
+                    Get Value of oConnectionId to sConnId
+                    Set psDefaultConnectionId of ghoConnection to sConnId
+                    
+                    Send Cursor_Wait of Cursor_Control
+                    Get ConnectionIniFile of ghoConnection to sConnections
+                    Send CreateConnectionsIni of ghoConnection sConnections
+                    Move (not(DoesFileExist(sConnections))) to bError    
+                    If (bError) Begin
+                        Move (ExtractFileName(sConnections)) to sConnections
+                        Move ('could not create'*sConnections) to sError
+                    End
+                    Else Begin
+                      Get DatabaseExists of ghoConnection sDatabase sServer to bExists
+                        If (not(bExists)) Begin
+                            Get CreateDatabase of ghoConnection sDatabase sServer to bError
+                            If (bError) Begin
+                                Move 'database could not be created' to sError     
+                            End
+                        End
+                        If (not(bError or bWindowsAuth)) Begin
+                            Get LoginExists of ghoConnection sUid sServer to bExists
+                            If (not(bExists)) Begin
+                                Get CreateLogin of ghoConnection sUid sPwd sDatabase sServer to bError 
+                                If (bError) Begin
+                                    Move 'sql login could not be created' to sError     
+                                End             
+                            End
+                            If (not(bError)) Begin
+                                Get UserExists of ghoConnection sUid sDatabase sServer to bExists 
+                                If (not(bExists)) Begin
+                                    Get CreateUser of ghoConnection sUid sDatabase sServer edbowner to bError 
+                                    If (bError) Begin
+                                        Move 'database user could not be created' to sError           
+                                    End
+                                End
+                            End
+                        End 
+                    End    
+                    Send Cursor_Ready of Cursor_Control
+                    If (bError) Begin
+                        Send UserError sError
+                        Send Exit_Application
+                    End
+                End
+            End
+            Send Stop_Modal_UI
+        End_Procedure
+    End_Object
+
+    Object oCancel_Btn is a cdmButton
+        Set Label    to "&Cancel"
+        Set Location to 277 211
+        Set peAnchors to anBottomRight
+
+        Procedure OnClick
+            Send Exit_Application
+        End_Procedure
+    End_Object
+
+    Procedure Activating
+        Boolean bFound
+
+        Forward Send Activating
+        Send LoadDriver "MSSQLDRV" (&bFound)
+    End_Procedure
+
+    On_Key Key_Alt+Key_O Send KeyAction of oOK_Btn
+    On_Key Key_Alt+Key_C Send KeyAction of oCancel_Btn
+End_Object
