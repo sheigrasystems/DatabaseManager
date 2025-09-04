@@ -98,10 +98,6 @@ Object TableHistory is a cTableDef
         Object oColumn is a cIndexSegment
             Set psColumn to "Column"
         End_Object   
-        
-        Object oId is a cIndexSegment
-            Set psColumn to "Id"
-        End_Object  
     End_Object
 
     Object Index3 is a cTableIndex

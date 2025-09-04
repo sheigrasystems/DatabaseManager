@@ -83,8 +83,21 @@ Object odbConfig is a ModalPanel
             Set Label to "Conn ID:"
             Set Label_Col_Offset to 36
             
+            { Visibility = Private }
+            Property String psConnId
+            
             Procedure OnDriverSelected String sDriver
-                Set Enabled_State to (sDriver<>"DATAFLEX")
+                String sConnId
+                
+                Get psConnId to sConnId
+                Set Enabled_State to (sDriver<>"DATAFLEX" and sConnId="")
+            End_Procedure
+            
+            Procedure Set ConnId String sConnId
+                Set psConnID to sConnId
+                Set Value to sConnId
+                Set Enabled_State to (sConnId="")
+                Set Enabled_State of oDatabaseType to (sConnId="")
             End_Procedure
         End_Object
     End_Object
@@ -488,10 +501,27 @@ Object odbConfig is a ModalPanel
     End_Object
 
     Procedure Activating
-        Boolean bFound
+        Boolean bFound        
+        String  sArg sConnId
+        Integer iCount iArg
+        Handle  hoCommandLine
 
         Forward Send Activating
         Send LoadDriver "MSSQLDRV" (&bFound)
+
+        Get phoCommandLine of ghoApplication to hoCommandLine
+        Get CountOfArgs of hoCommandLine to iCount
+        For iArg from 1 to iCount
+            Get Argument of hoCommandLine iArg to sArg
+            Move (Lowercase(sArg)) to sArg
+            If (Pos(Left(sArg,1),'/-')>0) Begin
+                Move (Right(sArg,Length(sArg)-1)) to sArg
+                If (sArg='connid') Begin
+                    Get Argument of hoCommandLine (iArg+1) to sConnId
+                End
+            End
+        Loop
+        Set ConnId of oConnectionId to sConnId
     End_Procedure
 
     On_Key Key_Alt+Key_O Send KeyAction of oOK_Btn

@@ -210,7 +210,9 @@ Class cTableDef is a cObject
     { Visibility = Private }
     Function ColumnNames Returns String[]
         String[] aColumns
-        String sName sOwner
+        String  sName sOwner
+        Handle  hTable
+        Integer iCol iCols
 
         Get psTableName to sName
         Get psOwner     to sOwner
@@ -224,7 +226,14 @@ Class cTableDef is a cObject
           AND TABLE_SCHEMA = '%2'
         ORDER BY 
           ORDINAL_POSITION;
-        """,sName,sOwner)) to aColumns        
+        """,sName,sOwner)) to aColumns
+        If (SizeOfArray(aColumns)=0) Begin
+            Get phTempTable to hTable
+            Get_Attribute DF_FILE_NUMBER_FIELDS of hTable to iCols
+            For iCol from 1 to iCols            
+                Get_Attribute DF_FIELD_NAME of hTable iCol to aColumns[-1]        
+            Loop
+        End     
         Function_Return aColumns
     End_Function
     
