@@ -15,5 +15,7 @@
 ### Changed
 - Dropped 'Sheigra' from the .sws file name. 
 
-
+## [0.2.1] – 2025-09-04
+### Fixed
+- added ID as segment to Index.2 on the TableHistory table 
 
