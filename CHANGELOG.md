@@ -29,3 +29,7 @@
 - removed ID as segment to Index.2 on the TableHistory table (it was never required)
 - Function ColumnNames in cTableDef only returns columns for an existing table. 
   when creating a table and setting the primary index it returned an empty array.
+  
+## [1.0.1] – 2025-09-24
+### Fixed
+- TableHistory.fd had incorrect column information (wrong column numbers) 

@@ -6,7 +6,7 @@
 #Replace TableHistory.Table |FS1,4
 #Replace TableHistory.Column |FS1,5
 #Replace TableHistory.Changed |FS1,6
-#Replace TableHistory.VersionMajor |FS1,4
-#Replace TableHistory.VersionMinor |FS1,5
-#Replace TableHistory.VersionPatch |FS1,6
-#Replace TableHistory.VersionBuild |FS1,7
+#Replace TableHistory.VersionMajor |FS1,7
+#Replace TableHistory.VersionMinor |FS1,8
+#Replace TableHistory.VersionPatch |FS1,9
+#Replace TableHistory.VersionBuild |FS1,10
