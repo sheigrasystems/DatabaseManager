@@ -172,30 +172,141 @@ Class cdmConnection is a cConnection
         Function_Return sDatabase
     End_Function    
                     
+    // Defaults for hand-written definitions. Generated code preserves DF_FIELD_TYPE
+    // separately because varchar and datetime can have more than one mapping.
     Function SqlTypeToDfType Integer eSQLType Returns Integer
         Integer eDFType
-        
-        Case Begin 
+        Move -1 to eDFType // No default mapping for an unknown native type
+        Case Begin
             Case (eSQLType=SQL_CHAR)
+            Case (eSQLType=SQL_VARCHAR)
             Case (eSQLType=SQL_WCHAR)
+            Case (eSQLType=SQL_WVARCHAR)
+            Case (eSQLType=SQL_GUID)
+            Case (eSQLType=SQL_TYPE_TIME)
+            Case (eSQLType=SQL_TIME)
+            Case (eSQLType=SQL_SS_TIME2)
                 Move DF_ASCII to eDFType
                 Case Break
+            Case (eSQLType=SQL_LONGVARCHAR)
+            Case (eSQLType=SQL_WLONGVARCHAR)
+            Case (eSQLType=SQL_VARCHARMAX)
             Case (eSQLType=SQL_WVARCHARMAX)
+            Case (eSQLType=SQL_SS_XML)
                 Move DF_TEXT to eDFType
                 Case Break
+            Case (eSQLType=SQL_BIGINT)
             Case (eSQLType=SQL_INTEGER)
             Case (eSQLType=SQL_SMALLINT)
             Case (eSQLType=SQL_TINYINT)
             Case (eSQLType=SQL_NUMERIC)
+            Case (eSQLType=SQL_DECIMAL)
+            Case (eSQLType=SQL_FLOAT)
+            Case (eSQLType=SQL_REAL)
+            Case (eSQLType=SQL_DOUBLE)
+            Case (eSQLType=SQL_BIT)
+            Case (eSQLType=SQL_TYPE_MONEY)
+            Case (eSQLType=SQL_TYPE_SMALLMONEY)
                 Move DF_BCD to eDFType
                 Case Break
-            Case (eSQLType=SQL_TYPE_TIMESTAMP)
-            Case (esqlTime=SQL_DATETIME)
+            Case (eSQLType=SQL_BINARY)
+            Case (eSQLType=SQL_VARBINARY)
+            Case (eSQLType=SQL_LONGVARBINARY)
+            Case (eSQLType=SQL_VARBINARYMAX)
+                Move DF_BINARY to eDFType
+                Case Break
             Case (eSQLType=SQL_TYPE_DATE)
+            Case (eSQLType=SQL_DATETIME)
+            Case (eSQLType=SQL_TYPE_TIMESTAMP)
+            Case (eSQLType=SQL_TIMESTAMP)
                 Move DF_DATE to eDFType
                 Case Break
-        Case End        
+            Case (eSQLType=SQL_TYPE_TIMESTAMP2)
+            Case (eSQLType=SQL_TYPE_SMALLDATETIME)
+            Case (eSQLType=SQL_SS_TIMESTAMPOFFSET)
+                Move DF_DATETIME to eDFType
+                Case Break
+        Case End
         Function_Return eDFType
+    End_Function
+
+    // Keep unknown native type IDs rather than silently substituting SQL_CHAR.
+    Function SqlTypeSourceName Integer eSQLType Returns String
+        Case Begin
+            Case (eSQLType=SQL_CHAR)
+                Function_Return "SQL_CHAR"
+            Case (eSQLType=SQL_VARCHAR)
+                Function_Return "SQL_VARCHAR"
+            Case (eSQLType=SQL_WCHAR)
+                Function_Return "SQL_WCHAR"
+            Case (eSQLType=SQL_WVARCHAR)
+                Function_Return "SQL_WVARCHAR"
+            Case (eSQLType=SQL_GUID)
+                Function_Return "SQL_GUID"
+            Case (eSQLType=SQL_TYPE_TIME)
+                Function_Return "SQL_TYPE_TIME"
+            Case (eSQLType=SQL_TIME)
+                Function_Return "SQL_TIME"
+            Case (eSQLType=SQL_SS_TIME2)
+                Function_Return "SQL_SS_TIME2"
+            Case (eSQLType=SQL_LONGVARCHAR)
+                Function_Return "SQL_LONGVARCHAR"
+            Case (eSQLType=SQL_WLONGVARCHAR)
+                Function_Return "SQL_WLONGVARCHAR"
+            Case (eSQLType=SQL_VARCHARMAX)
+                Function_Return "SQL_VARCHARMAX"
+            Case (eSQLType=SQL_WVARCHARMAX)
+                Function_Return "SQL_WVARCHARMAX"
+            Case (eSQLType=SQL_SS_XML)
+                Function_Return "SQL_SS_XML"
+            Case (eSQLType=SQL_BIGINT)
+                Function_Return "SQL_BIGINT"
+            Case (eSQLType=SQL_INTEGER)
+                Function_Return "SQL_INTEGER"
+            Case (eSQLType=SQL_SMALLINT)
+                Function_Return "SQL_SMALLINT"
+            Case (eSQLType=SQL_TINYINT)
+                Function_Return "SQL_TINYINT"
+            Case (eSQLType=SQL_NUMERIC)
+                Function_Return "SQL_NUMERIC"
+            Case (eSQLType=SQL_DECIMAL)
+                Function_Return "SQL_DECIMAL"
+            Case (eSQLType=SQL_FLOAT)
+                Function_Return "SQL_FLOAT"
+            Case (eSQLType=SQL_REAL)
+                Function_Return "SQL_REAL"
+            Case (eSQLType=SQL_DOUBLE)
+                Function_Return "SQL_DOUBLE"
+            Case (eSQLType=SQL_BIT)
+                Function_Return "SQL_BIT"
+            Case (eSQLType=SQL_TYPE_MONEY)
+                Function_Return "SQL_TYPE_MONEY"
+            Case (eSQLType=SQL_TYPE_SMALLMONEY)
+                Function_Return "SQL_TYPE_SMALLMONEY"
+            Case (eSQLType=SQL_BINARY)
+                Function_Return "SQL_BINARY"
+            Case (eSQLType=SQL_VARBINARY)
+                Function_Return "SQL_VARBINARY"
+            Case (eSQLType=SQL_LONGVARBINARY)
+                Function_Return "SQL_LONGVARBINARY"
+            Case (eSQLType=SQL_VARBINARYMAX)
+                Function_Return "SQL_VARBINARYMAX"
+            Case (eSQLType=SQL_TYPE_DATE)
+                Function_Return "SQL_TYPE_DATE"
+            Case (eSQLType=SQL_DATETIME)
+                Function_Return "SQL_DATETIME"
+            Case (eSQLType=SQL_TYPE_TIMESTAMP)
+                Function_Return "SQL_TYPE_TIMESTAMP"
+            Case (eSQLType=SQL_TIMESTAMP)
+                Function_Return "SQL_TIMESTAMP"
+            Case (eSQLType=SQL_TYPE_TIMESTAMP2)
+                Function_Return "SQL_TYPE_TIMESTAMP2"
+            Case (eSQLType=SQL_TYPE_SMALLDATETIME)
+                Function_Return "SQL_TYPE_SMALLDATETIME"
+            Case (eSQLType=SQL_SS_TIMESTAMPOFFSET)
+                Function_Return "SQL_SS_TIMESTAMPOFFSET"
+        Case End
+        Function_Return (String(eSQLType))
     End_Function  
     
     Function SqlConnectionId String sConnId Returns Handle

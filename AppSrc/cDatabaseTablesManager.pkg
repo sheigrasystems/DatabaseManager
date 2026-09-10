@@ -267,9 +267,9 @@ Class cDatabaseTablesManager is a BusinessProcess
                 For iIndex from 1 to iMaxIndex
                     Get_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments 
                     If (iSegments > 0) Begin
-                        Move iIndex                           to aTables[iTable].aIndexes[iIndex].iIndex
-                        Get_Attribute DF_INDEX_TYPE of hTable to aTables[iTable].aIndexes[iIndex].iType
-                        Move (iIndex=iPrime)                  to aTables[iTable].aIndexes[iIndex].bPrime
+                        Move iIndex to aTables[iTable].aIndexes[iIndex].iIndex
+                        Get_Attribute DF_INDEX_TYPE of hTable iIndex to aTables[iTable].aIndexes[iIndex].iType
+                        Move (iIndex=iPrime) to aTables[iTable].aIndexes[iIndex].bPrime
                         If (sDriver=MSSQLDRV_ID) Begin
                             Get_Attribute DF_INDEX_SQL_PRIMARY_KEY of hTable iIndex to aTables[iTable].aIndexes[iIndex].bSqlPk
                         End    
