@@ -26,3 +26,6 @@ DFConnId.ini
 Reindex.log
 Classlist.xml
 
+
+# Generated release packages
+/Database Manager-*.zip

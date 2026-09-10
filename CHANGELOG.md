@@ -35,6 +35,9 @@
 - TableHistory.fd had incorrect column information (wrong column numbers)
 
 ## [1.0.0] – 2026-09-10
+### Added
+- DataFlex 26.0 package metadata and a distributable 1.0.0 archive containing library source, examples, templates and documentation, with installation and packaging instructions.
+
 ### Changed
 - Migrated the library workspace from DataFlex 25.0 to 26.0, including the JSON workspace format and updated workspace paths and connection configuration.
 - Expanded SQL native type mappings and Studio property choices to cover BIGINT, decimal and floating-point types, money, binary, GUID, large text, XML, and additional date/time types. Split the native type metadata across EnumList continuation entries.

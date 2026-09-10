@@ -1,11 +1,46 @@
 {
-    "description": "Database Manager Library",
-    "df": 26.0,
-    "projects": [
-        "Library.src",
-        "SourceCodeGenerator.src"
+  "description": "Database Manager Library",
+  "df": 26.0,
+  "projects": [
+    "Library.src",
+    "SourceCodeGenerator.src"
+  ],
+  "studio": {
+    "DefaultFormHeight": 12
+  },
+  "workspaceName": "Database Manager",
+  "package": {
+    "version": "1.0.0",
+    "df-min": 26.0,
+    "df-max": 26.0,
+    "license": "MIT",
+    "licenseFile": "LICENSE",
+    "repository": "https://github.com/sheigrasystems/DatabaseManager",
+    "includeFiles": [
+      "Database Manager.sws",
+      "Programs/Config.ws",
+      "AppSrc/TableHistory.fd",
+      "AppSrc/Library.src",
+      "AppSrc/Library.cfg",
+      "AppSrc/Library64.exe.manifest",
+      "AppSrc/SourceCodeGenerator.src",
+      "AppSrc/SourceCodeGenerator.cfg",
+      "AppSrc/SourceCodeGenerator64.exe.manifest",
+      "DDSrc/*.fd",
+      "Help/*.pdf",
+      "README.md",
+      "CHANGELOG.md"
     ],
-    "studio": {
-        "DefaultFormHeight": 12
-    }
+    "excludeFiles": [
+      "AppSrc/Tables/**",
+      "**/*.pkd",
+      "**/*.prn",
+      "**/*.exe",
+      "**/*.dbg",
+      "**/*.log",
+      "**/*.bak",
+      "**/* - bak/**",
+      "**/* - Copy/**"
+    ]
+  }
 }

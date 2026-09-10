@@ -5,27 +5,22 @@ Define your database schema in code, compile your own manager app, and run it to
 
 ---
 
-## Getting Started
+## Installation
 
-1. Add this library to your DataFlex workspace.  
-2. Create a new DataFlex application that uses the library.  
-3. Model your database schema in code (as objects).  
-4. Compile and run your Database Manager application.  
-5. The application will ensure your database exists and matches your model, applying any required schema changes.
+Download the source ZIP from the [GitHub releases page](https://github.com/sheigrasystems/DatabaseManager/releases) and extract it into a permanent library folder. Add `Database Manager.sws` to your application workspace as a local library in the DataFlex Studio.
 
 ---
 
 ## Requirements
 
-- DataFlex 25.0 or later  
+- DataFlex 2026 (26.0)
 - Currently works with the embedded DataFlex database or MSSQL. 
 
 ---
 
 ## Documentation
 
-Full documentation is included in the library under the `/Help` folder.  
-This contains setup instructions, usage examples, and detailed reference material.
+The [Database Manager user guide](Help/Database%20Manager.pdf) is included in the Help folder and in the package. It covers setup, examples, the library classes and the Source Code Generator.
 
 ---
 
