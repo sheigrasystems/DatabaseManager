@@ -3,6 +3,7 @@
 * text=auto
 
 # DataFlex source and workspace files
+# DataFlex overrides suppress incorrect detection until GitHub supports the language.
 *.src text eol=crlf linguist-language=DataFlex
 *.pkg text eol=crlf linguist-language=DataFlex
 *.wo  text eol=crlf linguist-language=DataFlex
@@ -14,9 +15,13 @@
 *.dd  text eol=crlf linguist-language=DataFlex
 *.fd  text eol=crlf linguist-language=DataFlex
 *.inc text eol=crlf linguist-language=DataFlex
+*.Inc text eol=crlf linguist-language=DataFlex
+*.frm text eol=crlf linguist-language=DataFlex
 *.tpl text eol=crlf linguist-language=DataFlex
 *.mn  text eol=crlf linguist-language=DataFlex
 *.dfo text eol=crlf linguist-language=DataFlex
+# Workspace configuration: .ws is INI, not Witcher Script.
+*.ws  text eol=crlf linguist-language=INI
 *.sws text eol=crlf linguist-language=JSON
 *.cfg text eol=crlf
 *.xml text eol=crlf
@@ -26,6 +31,20 @@
 *.css  text eol=lf
 *.html text eol=lf
 *.md   text eol=lf
+
+# Exclude compiler output and generated metadata from language statistics.
+*.prn linguist-generated=true
+*.dbg linguist-generated=true
+*.dsk linguist-generated=true
+*.mtd linguist-generated=true
+*.dep linguist-generated=true
+*.fld linguist-generated=true
+*.pdp linguist-generated=true
+*.pkd linguist-generated=true
+
+# User guides are documentation, not application source.
+Help/** linguist-documentation=true
+*.rtf linguist-documentation=true
 
 # Binary assets
 *.eot  binary
