@@ -3,7 +3,7 @@
     "df": 26.0,
     "projects": [
         "Library.src",
-        "SourceCodeGenerator.src",
+        "SourceCodeGenerator.src"
     ],
     "studio": {
         "DefaultFormHeight": 12
