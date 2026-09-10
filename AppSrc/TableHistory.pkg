@@ -5,6 +5,7 @@ Use cIndexDef.pkg
 Declare_Datafile TableHistory
 
 Object TableHistory is a cTableDef
+    Set psTableName to "TableHistory"
     Set psDescription to "Table History"
     Set peDriver to eDEFAULT
     Set phoTableHistory to Self 

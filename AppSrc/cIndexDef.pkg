@@ -88,7 +88,6 @@ Class cTableIndex is a cObject
                         Get psColumn of aSegments[i] to sColumn
                         Move (SearchArray(sColumn,aColumns,Desktop,RefFunc(DFSTRICMP))) to iCol    
                         If (iCol>-1) Begin
-                            Increment iCol
                             Case Begin
                                 Case (tIndex.aSegments[i].iCol<>iCol)
                                 Case (tIndex.aSegments[i].bDescending <> pbDescending(aSegments[i]))
@@ -96,6 +95,9 @@ Class cTableIndex is a cObject
                                     Move False to bIsSame
                                     Case Break    
                             Case End
+                        End
+                        Else Begin
+                            Move False to bIsSame
                         End
                     Loop        
             Case End

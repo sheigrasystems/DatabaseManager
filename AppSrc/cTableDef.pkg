@@ -208,32 +208,28 @@ Class cTableDef is a cObject
     End_Function
     
     { Visibility = Private }
-    Function ColumnNames Returns String[]
+    // Array subscripts are DataFlex field numbers, including Recnum at zero.
+    // Pass the structure handle while creating/restructuring a table; otherwise
+    // read the open table used by the index comparison pass.
+    Function ColumnNames Handle hStructure Returns String[]
         String[] aColumns
-        String  sName sOwner
-        Handle  hTable
-        Integer iCol iCols
+        Handle hTable
+        Integer iCol iCols iFirst
+        Boolean bRecnum
 
-        Get psTableName to sName
-        Get psOwner     to sOwner
-        Get SQLExecDirect of ghoSQLExecutor (SFormat(@SQL"""        
-        SELECT 
-          COLUMN_NAME 
-        FROM 
-          INFORMATION_SCHEMA.COLUMNS 
-        WHERE 
-          TABLE_NAME = '%1' 
-          AND TABLE_SCHEMA = '%2'
-        ORDER BY 
-          ORDINAL_POSITION;
-        """,sName,sOwner)) to aColumns
-        If (SizeOfArray(aColumns)=0) Begin
-            Get phTempTable to hTable
-            Get_Attribute DF_FILE_NUMBER_FIELDS of hTable to iCols
-            For iCol from 1 to iCols            
-                Get_Attribute DF_FIELD_NAME of hTable iCol to aColumns[-1]        
-            Loop
-        End     
+        If (num_arguments>0) Begin
+            Move hStructure to hTable
+        End
+        Else Begin
+            Get piFileNo to hTable
+        End
+        Get_Attribute DF_FILE_NUMBER_FIELDS of hTable to iCols
+        Get_Attribute DF_FILE_RECNUM_TABLE of hTable to bRecnum
+        Move (ResizeArray(aColumns,iCols+1)) to aColumns
+        Move (If(bRecnum,0,1)) to iFirst
+        For iCol from iFirst to iCols
+            Get_Attribute DF_FIELD_NAME of hTable iCol to aColumns[iCol]
+        Loop
         Function_Return aColumns
     End_Function
     
@@ -498,7 +494,7 @@ Class cTableDef is a cObject
         Boolean bAlias bError bIdentity bPrime bRequired
         String  sName sDescription sRoot sOwner sConnection sCharacterFormat sDriver
         Handle  hTable 
-        Integer i eCharacterFormat iCol eFlag iOld_No iCols iIndex
+        Integer i eCharacterFormat iCol eFlag iOld_No iCols iIndex iMaxIndex iSegments
         Handle[] aColumns aIndexes aSegments aColumnsToMove
                 
         Get psTableName            to sName
@@ -673,9 +669,16 @@ Class cTableDef is a cObject
             Structure_Start hTable sDriver    
             Set phTempTable to hTable
             For i from 0 to (SizeOfArray(aIndexes)-1)
-                Get pbPrimaryIndex of aIndexes[i] to bPrime
-                If (not(bPrime)) Begin
-                    Send CreateIndex aIndexes[i]    
+                // Primary indexes may have survived deletion, or may have been
+                // created in the first structure pass for a new table.
+                Get piIndex of aIndexes[i] to iIndex
+                Get_Attribute DF_FILE_LAST_INDEX_NUMBER of hTable to iMaxIndex
+                Move 0 to iSegments
+                If (iIndex<=iMaxIndex) Begin
+                    Get_Attribute DF_INDEX_NUMBER_SEGMENTS of hTable iIndex to iSegments
+                End
+                If (iSegments=0) Begin
+                    Send CreateIndex aIndexes[i]
                 End
             Loop
             // Field index settings
@@ -762,7 +765,7 @@ Class cTableDef is a cObject
             Move aSegments[iSegment-1] to hoSegment
             Get pbIgnoreCase of hoSegment to bIgnoreCase
             Get pbDescending of hoSegment to bDescending
-            Get ColumnNames to aColumns
+            Get ColumnNames hTable to aColumns
             Get psColumn of hoSegment to sColumn
             If (sColumn="") Begin
                 Get Name of hoSegment to sColumn
@@ -771,8 +774,6 @@ Class cTableDef is a cObject
             End
             Move (SearchArray(sColumn,aColumns,Desktop,RefFunc(DFSTRICMP))) to iCol
             If (iCol>-1) Begin
-                Increment iCol
-                                
                 Set_Attribute DF_INDEX_SEGMENT_FIELD     of hTable iIndex iSegment to iCol
                 Set_Attribute DF_INDEX_SEGMENT_DIRECTION of hTable iIndex iSegment to (If(bDescending,DF_DESCENDING,DF_ASCENDING))
                 Set_Attribute DF_INDEX_SEGMENT_CASE      of hTable iIndex iSegment to (If(bIgnoreCase,DF_CASE_IGNORED,DF_CASE_USED))
