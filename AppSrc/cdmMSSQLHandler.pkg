@@ -1,0 +1,57 @@
+Use MSSqldrv.pkg
+
+// Extends the DataFlex SQL Server helper with explicit ODBC Driver 18
+// encryption settings. ODBC Driver 18 otherwise defaults to mandatory
+// encryption, which prevents database enumeration when a development or
+// on-premises SQL Server uses a certificate that is not trusted by Windows.
+Class cdmMSSQLHandler is a cMSSQLHandler
+
+    Function EnumerateDatabases String sServer String sUser String sPassword Returns Integer
+        Integer hoSQL
+        String  sConnect
+        String  sDatabase
+        Integer hdbc
+        Integer hstmt
+        Integer iFetchResult
+
+        If (Num_Arguments < 3) ;
+            Move "" to sPassword
+        If (Num_Arguments < 2) ;
+            Move "" to sUser
+
+        If (sUser <> "") ;
+            Move ("SERVER=" + Trim(sServer) + ";UID=" + Trim(sUser) + ";PWD=" + Trim(sPassword) + ";") to sConnect
+        Else ;
+            Move ("SERVER=" + Trim(sServer) + ";Trusted_Connection=yes;") to sConnect
+
+        Move (sConnect + "Encrypt=Optional;TrustServerCertificate=no") to sConnect
+
+        Object oEnumDBSQLManager is a cSQLHandleManager
+            Move Current_Object to hoSQL
+        End_Object
+
+        If (hoSQL <> 0) Begin
+            Get SQLConnect of hoSQL MSSQLDRV_ID sConnect to hdbc
+            If (hdbc <> 0) Begin
+                Get SQLOpen of hdbc to hstmt
+                If (hstmt <> 0) Begin
+                    Send SQLSetProcedureName to hstmt "sp_databases"
+                    Send SQLCall to hstmt
+                    Repeat
+                        Get SQLFetch of hstmt to iFetchResult
+                        If (iFetchResult <> 0) Begin
+                            Get SQLColumnValue of hstmt 1 to sDatabase
+                            Set Value (Item_Count(Current_Object)) to sDatabase
+                        End
+                    Until (iFetchResult = 0)
+
+                    Send SQLClose to hstmt
+                End
+                Send SQLDisconnect to hdbc
+            End
+        End
+        Send Destroy_Object to hoSQL
+
+        Function_Return (Item_Count(Current_Object))
+    End_Function
+End_Class

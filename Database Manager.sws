@@ -10,7 +10,7 @@
   },
   "workspaceName": "Database Manager",
   "package": {
-    "version": "1.0.0",
+    "version": "1.0.1",
     "df-min": 26.0,
     "df-max": 26.0,
     "license": "MIT",

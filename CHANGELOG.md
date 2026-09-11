@@ -53,6 +53,8 @@
 
 ### Notes
 - Generated DF_OVERLAP definitions explicitly report a compile-time error because the required column offset support is not implemented. SQL Server sql_variant remains unsupported by the driver.
-- Validated type generation using AdventureWorks2022 and relationship generation through compilation and execution of the generated manager.
-- Validated existing Recnum tables using OrderEntryDemo26: unchanged-schema runs, adding and populating a column before creating its unique index, preservation of existing indexes, and a successful repeat run.
-- BIGINT itself was not exercised against a test database, and creation from scratch was not retested.
+
+## [1.0.1] – 2026-09-11
+### Fixed
+- Added explicit SQL Server encryption options to database enumeration, setup, and managed connection strings for compatibility with Microsoft ODBC Driver 18. A local `cMSSQLHandler` subclass now supplies the options when listing databases without modifying the DataFlex system packages.
+- Set `DF_FILE_TABLE_NAME` when creating MSSQL tables so that the database table name preserves the casing declared by `psTableName`.

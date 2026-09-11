@@ -540,6 +540,7 @@ Class cTableDef is a cObject
                 Set_Attribute DF_FILE_IS_SYSTEM_FILE of hTable to bSystem
                 If (sDriver=MSSQLDRV_ID) Begin
                     Set_Attribute DF_FILE_PHYSICAL_NAME          of hTable to (SFormat("%1.int",sName))
+                    Set_Attribute DF_FILE_TABLE_NAME             of hTable to sName
                     Set_Attribute DF_FILE_RECNUM_TABLE           of hTable to bRecnum
                     Set_Attribute DF_FILE_LOGIN                  of hTable to sConnection
                     Set_Attribute DF_FILE_OWNER                  of hTable to sOwner

@@ -98,7 +98,7 @@ Class cdmConnection is a cConnection
         Get psServer to sServer
         Get psDatabase to sDatabase        
         Move MSSQLDRV_ID to Ids[0].sDriver
-        Move (SFormat("SERVER=%1;DATABASE=%2;Encrypt=No;TrustServerCertificate=no",sServer,sDatabase)) to Ids[0].sString
+        Move (SFormat("SERVER=%1;DATABASE=%2;Encrypt=Optional;TrustServerCertificate=no",sServer,sDatabase)) to Ids[0].sString
         Get psUid to Ids[0].sUID
         Get psPwd to Ids[0].sPWD
         Move (Ids[0].sUID='' and Ids[0].sPWD='') to Ids[0].bTrustedConnection
@@ -358,7 +358,7 @@ Class cdmConnection is a cConnection
 
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End
@@ -399,7 +399,7 @@ Class cdmConnection is a cConnection
 
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End
@@ -442,7 +442,7 @@ Class cdmConnection is a cConnection
         
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End
@@ -482,7 +482,7 @@ Class cdmConnection is a cConnection
 
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=master;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End
@@ -536,7 +536,7 @@ Class cdmConnection is a cConnection
         
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End
@@ -580,7 +580,7 @@ Class cdmConnection is a cConnection
 
         Get psSAUid to sUid
         Get psSAPwd to sPwd
-        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2" to sConnection
+        Move "SERVER=%1;Trusted_Connection=yes;DATABASE=%2;Encrypt=Optional;TrustServerCertificate=no" to sConnection
         If (sUid>'' and sPwd>'') Begin
             Move (Replace('Trusted_Connection=yes',sConnection,SFormat('UID=%1;PWD=%2',sUid,sPwd))) to sConnection
         End

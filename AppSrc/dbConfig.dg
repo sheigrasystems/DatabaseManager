@@ -3,6 +3,7 @@ Use Dfline.pkg
 Use MSSqldrv.pkg
 Use cdmButton.pkg
 Use cdmConnection.pkg
+Use cdmMSSQLHandler.pkg
 
 Object odbConfig is a ModalPanel
     Set Size to 295 266
@@ -216,7 +217,7 @@ Object odbConfig is a ModalPanel
                 Handle hoSQLHandler
                 String[] aServers
         
-                Get CreateNamed (RefClass(cMSSQLhandler)) '_oSQLHandler' to hoSQLHandler
+                Get CreateNamed (RefClass(cdmMSSQLHandler)) '_oSQLHandler' to hoSQLHandler
                 If (hoSQLHandler<>0) Begin
                     Send Cursor_Wait of Cursor_Control
                     Get EnumerateServers of hoSQLHandler to iNumServers
@@ -275,7 +276,7 @@ Object odbConfig is a ModalPanel
                 Get Value of oServer 0 to sServer
                 Move (Trim(sServer)) to sServer
                 If (Length(sServer)>0) Begin
-                    Get CreateNamed (RefClass(cMSSQLhandler)) '_oSQLHandler' to hoSQLHandler
+                    Get CreateNamed (RefClass(cdmMSSQLHandler)) '_oSQLHandler' to hoSQLHandler
                     If (hoSQLHandler<>0) Begin
                         Get Value of (oSA_Username(oSetupLogin)) to sUser
                         Get Value of (oSA_Password(oSetupLogin)) to sPwd
