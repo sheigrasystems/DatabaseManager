@@ -525,6 +525,10 @@ Class cTableDef is a cObject
         End
         If (not(bCreateTable)) Begin
             Get OpenTable hTable True to bError
+            If (bError) Begin
+                Error DFERR_OPERATION_NOT_ALLOWED "Unable to open table for structural processing"
+                Procedure_Return
+            End
         End
         Set ComponentStatus to sName
         Get paColumnObjects to aColumns
@@ -641,6 +645,10 @@ Class cTableDef is a cObject
         End
         Get piFileNo to hTable
         Get OpenTable hTable True to bError
+        If (bError) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED "Unable to open table after structural processing"
+            Procedure_Return
+        End
         If (not(bAlias)) Begin            
             If (bCreateTable) Begin
                 Set DetailStatus to "Populating"
@@ -693,8 +701,120 @@ Class cTableDef is a cObject
             Structure_End hTable DF_STRUCTEND_OPT_NONE
             Get piFileNo to hTable
             Get OpenTable hTable True to bError
+            If (bError) Begin
+                Error DFERR_OPERATION_NOT_ALLOWED "Unable to open table for structural processing"
+                Procedure_Return
+            End
         End
     End_Procedure
+
+    // Called once per successful processing pass, after all table structures
+    // have been processed and this table's final columns/indexes match.
+    { MethodType = Event }
+    Procedure OnTableStructureConfirmed
+    End_Procedure
+
+    { Visibility = Private }
+    Function IsTableStructureConfirmed tdDbTable tTable Returns Boolean
+        Handle hTable hoColumn
+        Handle[] aColumns aIndexes
+        Integer i iCol iExpectedCols iIndex iActualIndexes iFieldIndex iDfType iExpectedFieldIndex
+        Boolean bOpen bRecnum bIdentity
+        String sDriver
+
+        Get piFileNo to hTable
+        If (tTable.iFileNo<>hTable or tTable.sName="") Begin
+            Function_Return False
+        End
+        Get_Attribute DF_FILE_OPENED of hTable to bOpen
+        If (not(bOpen)) Begin
+            Function_Return False
+        End
+        Get_Attribute DF_FILE_RECNUM_TABLE of hTable to bRecnum
+        Get psDriver to sDriver
+        // Native DataFlex tables are always created as recnum tables.
+        If (sDriver="DATAFLEX") Begin
+            If (not(bRecnum)) Begin
+                Function_Return False
+            End
+        End
+        Else If (bRecnum<>pbRecnumTable(Self)) Begin
+            Function_Return False
+        End
+
+        Get paColumnObjects to aColumns
+        For i from 0 to (SizeOfArray(aColumns)-1)
+            Move aColumns[i] to hoColumn
+            // Temporary definition objects for removed columns are retained.
+            If (peActionFlg(hoColumn)<>afDelete) Begin
+                Increment iExpectedCols
+                Get piColumn of hoColumn to iCol
+                If (iCol<1 or iCol>=SizeOfArray(tTable.aColumns)) Begin
+                    Function_Return False
+                End
+                If (tTable.aColumns[iCol].sCol<>Uppercase(psName(hoColumn))) Begin
+                    Function_Return False
+                End
+                Get peDfDataType of hoColumn to iDfType
+                If (tTable.aColumns[iCol].iDfType<>iDfType) Begin
+                    Function_Return False
+                End
+                If (sDriver=MSSQLDRV_ID) Begin
+                    If (tTable.aColumns[iCol].iNativeType<>peNativeDataType(hoColumn)) Begin
+                        Function_Return False
+                    End
+                    Get_Attribute DF_FIELD_IS_IDENTITY of hTable iCol to bIdentity
+                    If (bIdentity<>pbIdentityColumn(hoColumn)) Begin
+                        Function_Return False
+                    End
+                End
+                If (iDfType<>DF_DATE) Begin
+                    If (tTable.aColumns[iCol].iLength<>piLength(hoColumn)) Begin
+                        Function_Return False
+                    End
+                    If (tTable.aColumns[iCol].iPrecision<>piPrecision(hoColumn)) Begin
+                        Function_Return False
+                    End
+                End
+                If (tTable.aColumns[iCol].iRelatedTable<>piRelatedTable(hoColumn)) Begin
+                    Function_Return False
+                End
+                If (tTable.aColumns[iCol].iRelatedCol<>piRelatedColumn(hoColumn)) Begin
+                    Function_Return False
+                End
+                Get piFieldIndex of hoColumn to iExpectedFieldIndex
+                If (iExpectedFieldIndex>AUTOASSIGN) Begin
+                    Get_Attribute DF_FIELD_INDEX of hTable iCol to iFieldIndex
+                    If (iFieldIndex<>iExpectedFieldIndex) Begin
+                        Function_Return False
+                    End
+                End
+            End
+        Loop
+        If (iExpectedCols<>(SizeOfArray(tTable.aColumns)-1)) Begin
+            Function_Return False
+        End
+
+        Get paIndexObjects to aIndexes
+        For i from 1 to (SizeOfArray(tTable.aIndexes)-1)
+            If (tTable.aIndexes[i].iIndex>0) Begin
+                Increment iActualIndexes
+            End
+        Loop
+        If (iActualIndexes<>SizeOfArray(aIndexes)) Begin
+            Function_Return False
+        End
+        For i from 0 to (SizeOfArray(aIndexes)-1)
+            Get piIndex of aIndexes[i] to iIndex
+            If (iIndex<1 or iIndex>=SizeOfArray(tTable.aIndexes)) Begin
+                Function_Return False
+            End
+            If (not(IsSameIndexDefinition(aIndexes[i],tTable.aIndexes[iIndex]))) Begin
+                Function_Return False
+            End
+        Loop
+        Function_Return True
+    End_Function
 
     { Visibility = Private }
     Function ValidateColumns Returns Integer

@@ -306,27 +306,66 @@ Class cDatabaseTablesManager is a BusinessProcess
     End_Function 
     
     Procedure OnProcess
-        Integer i 
-        Boolean bUpdate
-        Handle  hoTable hWnd hResult
-        String  sFile
-        Handle[] aTables
+        Integer i iErrorsBefore iErrorsAfter
+        Boolean bUpdate bConfirmed
+        Handle hoTable hWnd hResult
+        String sFile
+        Handle[] aTables aProcessed aConfirmed
+        tdDbTable tTable
 
         Set ComponentStatus to "Analising Database"
+        Get Error_Count to iErrorsBefore
         Send EstablishCurrentTableList
-        Get phaTables to aTables
-        For i from 0 to (SizeOfArray(aTables)-1)
-            Move aTables[i] to hoTable
-            Send OnInit of hoTable 
-            Get IsUpdateRequired of hoTable to bUpdate
-            If (bUpdate) Begin
-                Send DoUpdate of hoTable   
+        Get Error_Count to iErrorsAfter
+        If (iErrorsBefore=iErrorsAfter) Begin
+            Get phaTables to aTables
+            For i from 0 to (SizeOfArray(aTables)-1)
+                Move aTables[i] to hoTable
+                Get Error_Count to iErrorsBefore
+                Send OnInit of hoTable
+                Get Error_Count to iErrorsAfter
+                If (iErrorsBefore=iErrorsAfter) Begin
+                    Get IsUpdateRequired of hoTable to bUpdate
+                    Get Error_Count to iErrorsAfter
+                    If (bUpdate and iErrorsBefore=iErrorsAfter) Begin
+                        Send DoUpdate of hoTable
+                    End
+                End
+                Get Error_Count to iErrorsAfter
+                If (iErrorsBefore=iErrorsAfter and pbRequired(hoTable)) Begin
+                    Move hoTable to aProcessed[-1]
+                End
+            Loop
+
+            // Re-read final structures; never confirm using the initial snapshot.
+            Get Error_Count to iErrorsBefore
+            Send EstablishCurrentTableList
+            Get Error_Count to iErrorsAfter
+            If (iErrorsBefore=iErrorsAfter) Begin
+                For i from 0 to (SizeOfArray(aProcessed)-1)
+                    Move aProcessed[i] to hoTable
+                    Get Error_Count to iErrorsBefore
+                    Get CurrentTableDef (piFileNo(hoTable)) to tTable
+                    Get IsTableStructureConfirmed of hoTable tTable to bConfirmed
+                    Get Error_Count to iErrorsAfter
+                    If (bConfirmed and iErrorsBefore=iErrorsAfter) Begin
+                        Move hoTable to aConfirmed[-1]
+                    End
+                    Else If (iErrorsBefore=iErrorsAfter) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Final table structure does not match its definition: %1",psTableName(hoTable)))
+                    End
+                Loop
+
+                // Dispatch only after structural processing and verification.
+                For i from 0 to (SizeOfArray(aConfirmed)-1)
+                    Send OnTableStructureConfirmed of aConfirmed[i]
+                Loop
             End
-        Loop
+        End
         Get psStatusLogFile to sFile
         If (DoesFileExist(sFile)) Begin
-            Get Window_Handle to hWnd    
-            Move (ShellExecute(hWnd,"open",sFile,"","",SW_SHOWNORMAL)) to hResult       
-        End         
+            Get Window_Handle to hWnd
+            Move (ShellExecute(hWnd,"open",sFile,"","",SW_SHOWNORMAL)) to hResult
+        End
     End_Procedure
 End_Class
