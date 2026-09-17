@@ -58,3 +58,13 @@
 ### Fixed
 - Added explicit SQL Server encryption options to database enumeration, setup, and managed connection strings for compatibility with Microsoft ODBC Driver 18. A local `cMSSQLHandler` subclass now supplies the options when listing databases without modifying the DataFlex system packages.
 - Set `DF_FILE_TABLE_NAME` when creating MSSQL tables so that the database table name preserves the casing declared by `psTableName`.
+
+## [1.0.2] – 2026-09-17
+### Added
+- Added the `cTableDef.OnTableStructureConfirmed` event, fired once per required table after all table structures have been processed and its final columns and indexes match the definition. Includes tables that required no structural changes.
+
+### Changed
+- Re-read final table structures before dispatching confirmation events. Tables marked for deletion, tables with processing errors, and tables whose final structure does not match their definition do not receive the event.
+
+### Fixed
+- Stop structural processing for a table when it cannot be opened, rather than continuing after an open failure.
