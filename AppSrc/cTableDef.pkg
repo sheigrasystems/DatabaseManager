@@ -1,4 +1,4 @@
-﻿Use cDatabaseTablesManager.pkg
+Use cDatabaseTablesManager.pkg
 Use MSSqldrv.pkg
 Use cdmConnection.pkg
 Use EnumDrivers.pkg
@@ -719,7 +719,7 @@ Class cTableDef is a cObject
         Handle hTable hoColumn
         Handle[] aColumns aIndexes
         Integer i iCol iExpectedCols iIndex iActualIndexes iFieldIndex iDfType iExpectedFieldIndex
-        Boolean bOpen bRecnum bIdentity
+        Boolean bOpen bRecnum bIdentity bSystem
         String sDriver
 
         Get piFileNo to hTable
@@ -730,6 +730,10 @@ Class cTableDef is a cObject
         If (not(bOpen)) Begin
             Function_Return False
         End
+        Get_Attribute DF_FILE_IS_SYSTEM_FILE of hTable to bSystem
+        If (bSystem<>pbSystemTable(Self)) Begin
+            Function_Return False
+        End
         Get_Attribute DF_FILE_RECNUM_TABLE of hTable to bRecnum
         Get psDriver to sDriver
         // Native DataFlex tables are always created as recnum tables.
@@ -738,7 +742,8 @@ Class cTableDef is a cObject
                 Function_Return False
             End
         End
-        Else If (bRecnum<>pbRecnumTable(Self)) Begin
+        // SQL system tables can expose a logical Recnum without a SQL column.
+        Else If (not(bSystem) and bRecnum<>pbRecnumTable(Self)) Begin
             Function_Return False
         End
 
