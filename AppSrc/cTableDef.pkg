@@ -724,14 +724,17 @@ Class cTableDef is a cObject
 
         Get piFileNo to hTable
         If (tTable.iFileNo<>hTable or tTable.sName="") Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.iFileNo<>hTable or tTable.sName='')", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
         Get_Attribute DF_FILE_OPENED of hTable to bOpen
         If (not(bOpen)) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (not(bOpen))", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
         Get_Attribute DF_FILE_IS_SYSTEM_FILE of hTable to bSystem
         If (bSystem<>pbSystemTable(Self)) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (bSystem<>pbSystemTable(Self))", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
         Get_Attribute DF_FILE_RECNUM_TABLE of hTable to bRecnum
@@ -739,11 +742,13 @@ Class cTableDef is a cObject
         // Native DataFlex tables are always created as recnum tables.
         If (sDriver="DATAFLEX") Begin
             If (not(bRecnum)) Begin
+                Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (not(bRecnum))", psTableName(Self), iCol, iIndex))
                 Function_Return False
             End
         End
         // SQL system tables can expose a logical Recnum without a SQL column.
         Else If (not(bSystem) and bRecnum<>pbRecnumTable(Self)) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): Else If (not(bSystem) and bRecnum<>pbRecnumTable(Self))", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
 
@@ -755,48 +760,59 @@ Class cTableDef is a cObject
                 Increment iExpectedCols
                 Get piColumn of hoColumn to iCol
                 If (iCol<1 or iCol>=SizeOfArray(tTable.aColumns)) Begin
+                    Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (iCol<1 or iCol>=SizeOfArray(tTable.aColumns))", psTableName(Self), iCol, iIndex))
                     Function_Return False
                 End
                 If (tTable.aColumns[iCol].sCol<>Uppercase(psName(hoColumn))) Begin
+                    Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].sCol<>Uppercase(psName(hoColumn)))", psTableName(Self), iCol, iIndex))
                     Function_Return False
                 End
                 Get peDfDataType of hoColumn to iDfType
                 If (tTable.aColumns[iCol].iDfType<>iDfType) Begin
+                    Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iDfType<>iDfType)", psTableName(Self), iCol, iIndex))
                     Function_Return False
                 End
                 If (sDriver=MSSQLDRV_ID) Begin
                     If (tTable.aColumns[iCol].iNativeType<>peNativeDataType(hoColumn)) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iNativeType<>peNativeDataType(hoColumn))", psTableName(Self), iCol, iIndex))
                         Function_Return False
                     End
                     Get_Attribute DF_FIELD_IS_IDENTITY of hTable iCol to bIdentity
                     If (bIdentity<>pbIdentityColumn(hoColumn)) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (bIdentity<>pbIdentityColumn(hoColumn))", psTableName(Self), iCol, iIndex))
                         Function_Return False
                     End
                 End
                 If (iDfType<>DF_DATE) Begin
                     If (tTable.aColumns[iCol].iLength<>piLength(hoColumn)) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iLength<>piLength(hoColumn))", psTableName(Self), iCol, iIndex))
                         Function_Return False
                     End
                     If (tTable.aColumns[iCol].iPrecision<>piPrecision(hoColumn)) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iPrecision<>piPrecision(hoColumn))", psTableName(Self), iCol, iIndex))
                         Function_Return False
                     End
                 End
                 If (tTable.aColumns[iCol].iRelatedTable<>piRelatedTable(hoColumn)) Begin
+                    Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iRelatedTable<>piRelatedTable(hoColumn))", psTableName(Self), iCol, iIndex))
                     Function_Return False
                 End
                 If (tTable.aColumns[iCol].iRelatedCol<>piRelatedColumn(hoColumn)) Begin
+                    Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (tTable.aColumns[iCol].iRelatedCol<>piRelatedColumn(hoColumn))", psTableName(Self), iCol, iIndex))
                     Function_Return False
                 End
                 Get piFieldIndex of hoColumn to iExpectedFieldIndex
                 If (iExpectedFieldIndex>AUTOASSIGN) Begin
                     Get_Attribute DF_FIELD_INDEX of hTable iCol to iFieldIndex
                     If (iFieldIndex<>iExpectedFieldIndex) Begin
+                        Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (iFieldIndex<>iExpectedFieldIndex)", psTableName(Self), iCol, iIndex))
                         Function_Return False
                     End
                 End
             End
         Loop
         If (iExpectedCols<>(SizeOfArray(tTable.aColumns)-1)) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (iExpectedCols<>(SizeOfArray(tTable.aColumns)-1))", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
 
@@ -807,14 +823,17 @@ Class cTableDef is a cObject
             End
         Loop
         If (iActualIndexes<>SizeOfArray(aIndexes)) Begin
+            Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (iActualIndexes<>SizeOfArray(aIndexes))", psTableName(Self), iCol, iIndex))
             Function_Return False
         End
         For i from 0 to (SizeOfArray(aIndexes)-1)
             Get piIndex of aIndexes[i] to iIndex
             If (iIndex<1 or iIndex>=SizeOfArray(tTable.aIndexes)) Begin
+                Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (iIndex<1 or iIndex>=SizeOfArray(tTable.aIndexes))", psTableName(Self), iCol, iIndex))
                 Function_Return False
             End
             If (not(IsSameIndexDefinition(aIndexes[i],tTable.aIndexes[iIndex]))) Begin
+                Error DFERR_OPERATION_NOT_ALLOWED (SFormat("Structure mismatch in %1 (column %2, index %3): If (not(IsSameIndexDefinition(aIndexes[i],tTable.aIndexes[iIndex])))", psTableName(Self), iCol, iIndex))
                 Function_Return False
             End
         Loop
