@@ -64,6 +64,11 @@ Class cTableIndex is a cObject
         String[] aColumns
         Handle[] aSegments
         
+        // Missing indexes have no segment array; they need to be created.
+        If (tIndex.iIndex=0 or SizeOfArray(tIndex.aSegments)=0) Begin
+            Function_Return False
+        End
+
         Move True to bIsSame
         Get paIndexSegments to aSegments
         Move (RemoveFromArray(tIndex.aSegments,0)) to tIndex.aSegments
